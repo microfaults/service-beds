@@ -14,8 +14,10 @@
 
 # Build stage
 FROM golang:1.25-alpine AS builder
+ARG TARGETOS
+ARG TARGETARCH
 
-WORKDIR /app
+WORKDIR /src
 
 # Copy go mod files
 COPY go.mod go.sum* ./
@@ -27,19 +29,21 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o emailservice .
+ARG SKAFFOLD_GO_GCFLAGS
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /emailservice .
 
 # Final stage
-FROM alpine:3.19
+FROM alpine:3.22
 
-WORKDIR /app
+WORKDIR /src
 
 # Copy the binary from the builder stage
-COPY --from=builder /app/emailservice .
+COPY --from=builder /emailservice ./server
 
 # Copy templates directory if needed
-COPY --from=builder /app/templates ./templates
+COPY /templates /templates
 
+ENV GOTRACEBACK=single
 EXPOSE 8080
 
-ENTRYPOINT ["./emailservice"]
+ENTRYPOINT ["/src/server"]
