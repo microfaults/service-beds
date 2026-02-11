@@ -1,0 +1,165 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Payment Service",
+        "version": "1.0.0",
+        "description": "HTTP/JSON replacement for the former PaymentService gRPC API."
+    },
+    "paths": {
+        "/healthz": {
+            "get": {
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "Service is healthy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HealthResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/charge": {
+            "post": {
+                "summary": "Charge a credit card",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChargeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Charge successful",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChargeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid credit card or input",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Money": {
+                "type": "object",
+                "required": [
+                    "currency_code",
+                    "units",
+                    "nanos"
+                ],
+                "properties": {
+                    "currency_code": {
+                        "type": "string",
+                        "example": "USD"
+                    },
+                    "units": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "nanos": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            },
+            "CreditCardInfo": {
+                "type": "object",
+                "required": [
+                    "credit_card_number",
+                    "credit_card_cvv",
+                    "credit_card_expiration_year",
+                    "credit_card_expiration_month"
+                ],
+                "properties": {
+                    "credit_card_number": {
+                        "type": "string"
+                    },
+                    "credit_card_cvv": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "credit_card_expiration_year": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "credit_card_expiration_month": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            },
+            "ChargeRequest": {
+                "type": "object",
+                "required": [
+                    "amount",
+                    "credit_card"
+                ],
+                "properties": {
+                    "amount": {
+                        "$ref": "#/components/schemas/Money"
+                    },
+                    "credit_card": {
+                        "$ref": "#/components/schemas/CreditCardInfo"
+                    }
+                }
+            },
+            "ChargeResponse": {
+                "type": "object",
+                "required": [
+                    "transaction_id"
+                ],
+                "properties": {
+                    "transaction_id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "HealthResponse": {
+                "type": "object",
+                "required": [
+                    "status"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "example": "SERVING"
+                    }
+                }
+            },
+            "ErrorResponse": {
+                "type": "object",
+                "required": [
+                    "error"
+                ],
+                "properties": {
+                    "error": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}
