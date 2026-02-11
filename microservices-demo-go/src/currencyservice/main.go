@@ -246,6 +246,8 @@ func (s *service) convert(w http.ResponseWriter, r *http.Request) {
 	// Convert: from_currency -> EUR -> to_currency.
 	fromAmount := float64(req.From.Units) + float64(req.From.Nanos)/1e9
 	eur := fromAmount / fromRate
+	// Replicate Node.js behavior: round to nearest nano (9 decimal places).
+	eur = round(eur*1e9) / 1e9
 	toAmount := eur * toRate
 	out := moneyFromFloat(toAmount, req.ToCode)
 
