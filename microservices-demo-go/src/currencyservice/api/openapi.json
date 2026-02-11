@@ -1,0 +1,139 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Currency Service",
+    "version": "1.0.0",
+    "description": "HTTP/JSON replacement for the former CurrencyService gRPC API."
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/currencies": {
+      "get": {
+        "summary": "List supported currencies",
+        "responses": {
+          "200": {
+            "description": "List of supported ISO 4217 currency codes",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GetSupportedCurrenciesResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/convert": {
+      "post": {
+        "summary": "Convert a Money amount between currencies",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CurrencyConversionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Converted amount",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Money" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input / unsupported currency",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Money": {
+        "type": "object",
+        "required": ["currency_code", "units", "nanos"],
+        "properties": {
+          "currency_code": {
+            "type": "string",
+            "description": "The 3-letter currency code defined in ISO 4217.",
+            "example": "USD"
+          },
+          "units": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Whole units of the amount."
+          },
+          "nanos": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nano (10^-9) units of the amount (-999,999,999..999,999,999)."
+          }
+        }
+      },
+      "CurrencyConversionRequest": {
+        "type": "object",
+        "required": ["from", "to_code"],
+        "properties": {
+          "from": { "$ref": "#/components/schemas/Money" },
+          "to_code": {
+            "type": "string",
+            "description": "Target ISO 4217 currency code.",
+            "example": "EUR"
+          }
+        }
+      },
+      "GetSupportedCurrenciesResponse": {
+        "type": "object",
+        "required": ["currency_codes"],
+        "properties": {
+          "currency_codes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "example": ["USD", "EUR", "JPY"]
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "SERVING"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "unsupported to_code \"ABC\""
+          }
+        }
+      }
+    }
+  }
+}
