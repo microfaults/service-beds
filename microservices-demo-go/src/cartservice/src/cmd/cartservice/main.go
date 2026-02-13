@@ -163,6 +163,11 @@ func main() {
 		w.Write([]byte("{}"))
 	})
 
+	// GET /_healthz
+	mux.HandleFunc("GET /_healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	log.Printf("HTTP server listening on :%s", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux); err != nil {
 		log.Fatalf("failed to serve HTTP: %v", err)

@@ -43,6 +43,9 @@ func main() {
 	mux.HandleFunc("GET /products", handler.ListProducts)
 	mux.HandleFunc("GET /products/{id}", handler.GetProduct)
 	mux.HandleFunc("GET /products/search", handler.SearchProducts)
+	mux.HandleFunc("GET /_healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	log.Infof("starting http server at :%s", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {

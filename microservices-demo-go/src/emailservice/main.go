@@ -83,7 +83,7 @@ func start(dummyMode bool) {
 
 	// Set up HTTP handlers
 	http.HandleFunc("/send-order-confirmation", handleSendOrderConfirmation)
-	http.HandleFunc("/health", handleHealth)
+	http.HandleFunc("/_healthz", handleHealth)
 
 	// Get port from environment (equivalent to Python: os.environ.get('PORT', "8080"))
 	port := os.Getenv("PORT")

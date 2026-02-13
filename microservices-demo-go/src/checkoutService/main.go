@@ -70,7 +70,7 @@ func main() {
 
 	// Set up HTTP routes
 	http.HandleFunc("/placeorder", svc.handlePlaceOrder)
-	http.HandleFunc("/health", svc.handleHealth)
+	http.HandleFunc("/_healthz", svc.handleHealth)
 
 	log.Infof("starting to listen on http://:%s", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil); err != nil {

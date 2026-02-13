@@ -79,6 +79,9 @@ func main() {
 	}
 
 	http.HandleFunc("/", h.talkToGemini)
+	http.HandleFunc("/_healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {

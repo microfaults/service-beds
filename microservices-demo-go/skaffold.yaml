@@ -1,0 +1,42 @@
+apiVersion: skaffold/v3
+kind: Config
+metadata:
+  name: app
+build:
+  platforms: ["linux/amd64", "linux/arm64"]
+  artifacts:
+  - image: emailservice
+    context: src/emailservice
+  - image: productcatalogservice
+    context: src/productcatalogservice
+  - image: recommendationservice
+    context: src/recommendationservice
+  - image: shoppingassistantservice
+    context: src/shoppingassistantservice
+  - image: shippingservice
+    context: src/shippingservice
+  - image: checkoutservice
+    context: src/checkoutService
+  - image: paymentservice
+    context: src/paymentservice
+  - image: currencyservice
+    context: src/currencyservice
+  - image: cartservice
+    context: src/cartservice/src
+    docker:
+      dockerfile: Dockerfile
+  - image: frontend
+    context: src/frontend
+  - image: adservice
+    context: src/adservice
+  tagPolicy:
+    gitCommit: {}
+  local:
+    useDockerCLI: true
+    useBuildkit: true
+manifests:
+  kustomize:
+    paths:
+    - kubernetes-manifests
+deploy:
+  kubectl: {}

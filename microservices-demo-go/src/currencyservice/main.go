@@ -101,7 +101,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", svc.healthz)
+	mux.HandleFunc("GET /_healthz", svc.healthz)
 	mux.HandleFunc("GET /currencies", svc.getSupportedCurrencies)
 	mux.HandleFunc("POST /convert", svc.convert)
 

@@ -74,7 +74,7 @@ func main() {
 	// Register routes with OpenTelemetry HTTP instrumentation.
 	mux.Handle("POST /shipping/quote", otelhttp.NewHandler(http.HandlerFunc(handleGetQuote), "GetQuote"))
 	mux.Handle("POST /shipping/ship", otelhttp.NewHandler(http.HandlerFunc(handleShipOrder), "ShipOrder"))
-	mux.Handle("GET /health", otelhttp.NewHandler(http.HandlerFunc(handleHealth), "HealthCheck"))
+	mux.Handle("GET /_healthz", otelhttp.NewHandler(http.HandlerFunc(handleHealth), "HealthCheck"))
 
 	srv := &http.Server{
 		Addr:    addr,

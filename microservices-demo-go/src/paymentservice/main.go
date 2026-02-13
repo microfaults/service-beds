@@ -104,7 +104,7 @@ func main() {
 	svc := &service{log: log}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", svc.healthz)
+	mux.HandleFunc("GET /_healthz", svc.healthz)
 	mux.HandleFunc("POST /charge", svc.charge)
 
 	var handler http.Handler = mux
