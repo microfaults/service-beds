@@ -2,16 +2,16 @@ package cartstore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
-	pb "github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/proto"
-	"google.golang.org/protobuf/proto"
+	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/model"
 )
 
 type MemoryCartStore struct {
 	mu    sync.RWMutex
-	carts map[string][]byte
+	carts map[string][]byte // Storing as JSON bytes to simulate serialization behavior
 }
 
 func NewMemoryCartStore() *MemoryCartStore {
@@ -24,37 +24,20 @@ func (s *MemoryCartStore) AddItem(ctx context.Context, userID, productID string,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Get existing cart
-	var cart *pb.Cart
+	// Get existing cart (logic duplicated from Redis implementation for simulation)
+	var cart *model.Cart
 	if data, ok := s.carts[userID]; ok {
-		cart = &pb.Cart{}
-		if err := proto.Unmarshal(data, cart); err != nil {
+		cart = &model.Cart{}
+		if err := json.Unmarshal(data, cart); err != nil {
 			return fmt.Errorf("failed to unmarshal cart: %w", err)
 		}
 	} else {
-		cart = &pb.Cart{UserId: userID}
+		cart = &model.Cart{UserID: userID, Items: []*model.CartItem{}}
 	}
 
-	// Check if item exists
-	found := false
-	for _, item := range cart.Items {
-		if item.ProductId == productID {
-			item.Quantity += quantity
-			found = true
-			break
-		}
-	}
+	cart.AddItem(productID, quantity)
 
-	// If not found, add new item
-	if !found {
-		cart.Items = append(cart.Items, &pb.CartItem{
-			ProductId: productID,
-			Quantity:  quantity,
-		})
-	}
-
-	// Save back to memory
-	data, err := proto.Marshal(cart)
+	data, err := json.Marshal(cart)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cart: %w", err)
 	}
@@ -62,19 +45,19 @@ func (s *MemoryCartStore) AddItem(ctx context.Context, userID, productID string,
 	return nil
 }
 
-func (s *MemoryCartStore) GetCart(ctx context.Context, userID string) (*pb.Cart, error) {
+func (s *MemoryCartStore) GetCart(ctx context.Context, userID string) (*model.Cart, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	if data, ok := s.carts[userID]; ok {
-		cart := &pb.Cart{}
-		if err := proto.Unmarshal(data, cart); err != nil {
+		cart := &model.Cart{}
+		if err := json.Unmarshal(data, cart); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal cart: %w", err)
 		}
 		return cart, nil
 	}
 
-	return &pb.Cart{UserId: userID}, nil
+	return &model.Cart{UserID: userID, Items: []*model.CartItem{}}, nil
 }
 
 func (s *MemoryCartStore) EmptyCart(ctx context.Context, userID string) error {
