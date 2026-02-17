@@ -23,14 +23,5 @@ COPY --from=builder /checkoutservice /src/checkoutservice
 # See https://golang.org/pkg/runtime/
 ENV GOTRACEBACK=single
 
-# Environment variables for the service
-ENV PORT=5050
-ENV SHIPPING_SERVICE_ADDR=5051
-ENV PRODUCT_CATALOG_SERVICE_ADDR=5052
-ENV CART_SERVICE_ADDR=5053
-ENV CURRENCY_SERVICE_ADDR=5054
-ENV EMAIL_SERVICE_ADDR=5055
-ENV PAYMENT_SERVICE_ADDR=5056
-
 EXPOSE 5050
 ENTRYPOINT ["/src/checkoutservice"]

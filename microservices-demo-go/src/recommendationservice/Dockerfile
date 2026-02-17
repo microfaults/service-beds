@@ -23,6 +23,5 @@ COPY --from=builder /recommendationservice /src/recommendationservice
 # See https://golang.org/pkg/runtime/
 ENV GOTRACEBACK=single
 
-ENV PORT=8080
 EXPOSE 8080
 ENTRYPOINT ["/src/recommendationservice"]

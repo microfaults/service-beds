@@ -81,11 +81,14 @@ func (c *httpCurrencyClient) Convert(ctx context.Context, from *model.Money, toC
 		ToCode: toCurrency,
 	}
 	b, _ := json.Marshal(reqBody)
-	resp, err := c.client.Post(fmt.Sprintf("http://%s/currency/convert", c.addr), "application/json", bytes.NewReader(b))
+	resp, err := c.client.Post(fmt.Sprintf("http://%s/convert", c.addr), "application/json", bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("currency conversion failed: status %d", resp.StatusCode)
+	}
 	var out model.Money
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err

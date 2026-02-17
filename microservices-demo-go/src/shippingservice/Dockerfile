@@ -30,7 +30,6 @@ FROM gcr.io/distroless/static
 
 WORKDIR /src
 COPY --from=builder /go/bin/shippingservice /src/shippingservice
-ENV APP_PORT=8080
 
 # Definition of this variable is used by 'skaffold debug' to identify a golang binary.
 # Default behavior - a failure prints a stack trace for the current goroutine.
