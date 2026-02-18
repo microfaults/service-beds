@@ -80,46 +80,18 @@ func main() {
 			return
 		}
 
-		// Input expectation: {"item": {"product_id": "...", "quantity": 1}}
-		// OR just straight item?
-		// PROTOS had AddItemRequest { UserID, Item { ProductID, Quantity } }
-		// HTTP Gateway mapped body to *, so client sent {"item": {...}} or just { ... } fields?
-		// Let's assume a simple JSON object: {"product_id": "...", "quantity": 1}
-		// OR to match previous verification: {"item": {"product_id": "...", "quantity": 1}}
-		// The simplest pure-HTTP design is: {"product_id": "...", "quantity": 1}
-
-		// Let's support the simple flat structure for the "Pure HTTP" refactor as it's cleaner.
-		// Struct:
-		type AddItemRequest struct {
-			ProductID string `json:"product_id"`
-			Quantity  int32  `json:"quantity"`
-			// Optional wrapper support if needed, but let's stick to flat for now unless verification fails
-		}
-		// UPDATE: The user asked for "structs interpreted from protos".
-		// Proto AddItemRequest had `CartItem item = 2`.
-		// So the JSON likely was `{"item": {"product_id": "...", "quantity": ...}}`.
-		// To maintain compatibility with the previous curl commands I gave:
-		// `curl -X POST -d '{"item": {"product_id": "test-product", "quantity": 1}}'`
-		// I should probably support that structure.
-
-		type AddItemWrapper struct {
-			Item *model.CartItem `json:"item"`
-		}
-
-		input := &AddItemWrapper{}
+		input := &model.CartItem{}
 		if err := json.Unmarshal(body, input); err != nil {
-			// Try flat Unmarshal as fallback? Or strict?
-			// Let's stick to the wrapper to match the previous walkthrough's curl
-			http.Error(w, fmt.Sprintf("Failed to parse JSON: %v. Expected {'item': {'product_id': '...', 'quantity': N}}", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Failed to parse JSON: %v. Expected {'product_id': '...', 'quantity': N}", err), http.StatusBadRequest)
 			return
 		}
 
-		if input.Item == nil {
-			http.Error(w, "Missing 'item' field in JSON", http.StatusBadRequest)
+		if input.ProductID == "" {
+			http.Error(w, "Missing 'product_id' field in JSON", http.StatusBadRequest)
 			return
 		}
 
-		err = svc.AddItem(r.Context(), userID, input.Item.ProductID, input.Item.Quantity)
+		err = svc.AddItem(r.Context(), userID, input.ProductID, input.Quantity)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to add item: %v", err), http.StatusInternalServerError)
 			return
