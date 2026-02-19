@@ -81,7 +81,7 @@ func (c *httpCurrencyClient) Convert(ctx context.Context, from *model.Money, toC
 		ToCode: toCurrency,
 	}
 	b, _ := json.Marshal(reqBody)
-	resp, err := c.client.Post(fmt.Sprintf("http://%s/currency/convert", c.addr), "application/json", bytes.NewReader(b))
+	resp, err := c.client.Post(fmt.Sprintf("http://%s/convert", c.addr), "application/json", bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +311,7 @@ func NewCheckoutClient(addr string) CheckoutClient {
 
 func (c *httpCheckoutClient) PlaceOrder(ctx context.Context, req *model.PlaceOrderRequest) (*model.Order, error) {
 	b, _ := json.Marshal(req)
-	resp, err := c.client.Post(fmt.Sprintf("http://%s/checkout", c.addr), "application/json", bytes.NewReader(b))
+	resp, err := c.client.Post(fmt.Sprintf("http://%s/placeorder", c.addr), "application/json", bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}

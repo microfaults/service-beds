@@ -17,6 +17,7 @@ FROM alpine:3.22
 
 WORKDIR /src
 COPY --from=builder /productcatalogservice /src/productcatalogservice
+COPY products.json /src/products.json
 
 # Definition of this variable is used by 'skaffold debug' to identify a golang binary.
 # Default behavior - a failure prints a stack trace for the current goroutine.

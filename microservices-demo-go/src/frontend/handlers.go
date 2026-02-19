@@ -22,6 +22,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	// if true, frontend will not call currency conversion service if the currency is the same as the base currency (USD)
+	// this is an optimization to reduce the number of API calls
+	avoidNoopCurrencyConversionRPC = false
+)
+
 type platformDetails struct {
 	css      string
 	provider string
@@ -322,7 +328,7 @@ func (fe *frontendServer) placeOrderHandler(w http.ResponseWriter, r *http.Reque
 	payload := validator.PlaceOrderPayload{
 		Email:         email,
 		StreetAddress: streetAddress,
-		ZipCode:       zipCode,
+		ZipCode:       int32(zipCode),
 		City:          city,
 		State:         state,
 		Country:       country,
@@ -659,9 +665,7 @@ func (fe *frontendServer) insertCart(ctx context.Context, userID, productID stri
 }
 
 func (fe *frontendServer) convertCurrency(ctx context.Context, money *model.Money, currency string) (*model.Money, error) {
-	// avoidNoopCurrencyConversionRPC was false in original, so we always call?
-	// Original rpc.go: Line 78.
-	if false && money.CurrencyCode == currency { // keeping false constant
+	if avoidNoopCurrencyConversionRPC && money.CurrencyCode == currency {
 		return money, nil
 	}
 	return fe.currencySvc.Convert(ctx, money, currency)

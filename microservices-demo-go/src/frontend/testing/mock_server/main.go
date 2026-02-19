@@ -55,7 +55,7 @@ func main() {
 		})
 	}).Methods("GET")
 
-	r.HandleFunc("/currency/convert", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/convert", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			From   *Money `json:"from"`
 			ToCode string `json:"to_code"`

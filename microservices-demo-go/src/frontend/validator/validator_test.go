@@ -40,7 +40,7 @@ func TestPlaceOrderPassesValidation(t *testing.T) {
 			payload := PlaceOrderPayload{
 				Email:         tt.email,
 				StreetAddress: tt.streetAddress,
-				ZipCode:       tt.zipCode,
+				ZipCode:       int32(tt.zipCode),
 				City:          tt.city,
 				State:         tt.state,
 				Country:       tt.country,
@@ -87,7 +87,7 @@ func TestPlaceOrderFailsValidation(t *testing.T) {
 			payload := PlaceOrderPayload{
 				Email:         tt.email,
 				StreetAddress: tt.streetAddress,
-				ZipCode:       tt.zipCode,
+				ZipCode:       int32(tt.zipCode),
 				City:          tt.city,
 				State:         tt.state,
 				Country:       tt.country,

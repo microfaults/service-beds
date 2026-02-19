@@ -208,7 +208,7 @@ func (cs *checkoutService) prepareOrderItemsAndShippingQuoteFromCart(userID, use
 }
 
 func (cs *checkoutService) getUserCart(userID string) ([]*models.CartItem, error) {
-	url := fmt.Sprintf("%s/cart/%s", cs.cartSvcAddr, userID)
+	url := fmt.Sprintf("http://%s/cart/%s", cs.cartSvcAddr, userID)
 
 	resp, err := cs.httpClient.Get(url)
 	if err != nil {
@@ -230,7 +230,7 @@ func (cs *checkoutService) getUserCart(userID string) ([]*models.CartItem, error
 }
 
 func (cs *checkoutService) emptyUserCart(userID string) error {
-	url := fmt.Sprintf("%s/cart/%s", cs.cartSvcAddr, userID)
+	url := fmt.Sprintf("http://%s/cart/%s", cs.cartSvcAddr, userID)
 
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
@@ -275,7 +275,7 @@ func (cs *checkoutService) prepOrderItems(items []*models.CartItem, userCurrency
 }
 
 func (cs *checkoutService) getProduct(productID string) (*models.Product, error) {
-	url := fmt.Sprintf("%s/product/%s", cs.productCatalogSvcAddr, productID)
+	url := fmt.Sprintf("http://%s/products/%s", cs.productCatalogSvcAddr, productID)
 
 	resp, err := cs.httpClient.Get(url)
 	if err != nil {
@@ -297,7 +297,7 @@ func (cs *checkoutService) getProduct(productID string) (*models.Product, error)
 }
 
 func (cs *checkoutService) quoteShipping(address *models.Address, items []*models.CartItem) (*models.Money, error) {
-	url := fmt.Sprintf("%s/quote", cs.shippingSvcAddr)
+	url := fmt.Sprintf("http://%s/shipping/quote", cs.shippingSvcAddr)
 
 	reqBody := models.GetQuoteRequest{
 		Address: address,
@@ -329,7 +329,7 @@ func (cs *checkoutService) quoteShipping(address *models.Address, items []*model
 }
 
 func (cs *checkoutService) shipOrder(address *models.Address, items []*models.CartItem) (string, error) {
-	url := fmt.Sprintf("%s/ship", cs.shippingSvcAddr)
+	url := fmt.Sprintf("http://%s/shipping/ship", cs.shippingSvcAddr)
 
 	reqBody := models.ShipOrderRequest{
 		Address: address,
@@ -361,7 +361,7 @@ func (cs *checkoutService) shipOrder(address *models.Address, items []*models.Ca
 }
 
 func (cs *checkoutService) convertCurrency(from *models.Money, toCurrency string) (*models.Money, error) {
-	url := fmt.Sprintf("%s/convert", cs.currencySvcAddr)
+	url := fmt.Sprintf("http://%s/convert", cs.currencySvcAddr)
 
 	reqBody := models.CurrencyConversionRequest{
 		From:   from,
@@ -393,7 +393,7 @@ func (cs *checkoutService) convertCurrency(from *models.Money, toCurrency string
 }
 
 func (cs *checkoutService) chargeCard(amount *models.Money, paymentInfo *models.CreditCardInfo) (string, error) {
-	url := fmt.Sprintf("%s/charge", cs.paymentSvcAddr)
+	url := fmt.Sprintf("http://%s/charge", cs.paymentSvcAddr)
 
 	reqBody := models.ChargeRequest{
 		Amount:     amount,
@@ -425,7 +425,7 @@ func (cs *checkoutService) chargeCard(amount *models.Money, paymentInfo *models.
 }
 
 func (cs *checkoutService) sendOrderConfirmation(email string, order *models.OrderResult) error {
-	url := fmt.Sprintf("%s/send", cs.emailSvcAddr)
+	url := fmt.Sprintf("http://%s/send", cs.emailSvcAddr)
 
 	reqBody := models.SendOrderConfirmationRequest{
 		Email: email,

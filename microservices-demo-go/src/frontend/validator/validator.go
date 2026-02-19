@@ -42,7 +42,7 @@ type AddToCartPayload struct {
 type PlaceOrderPayload struct {
 	Email         string `validate:"required,email"`
 	StreetAddress string `validate:"required,max=512"`
-	ZipCode       int64  `validate:"required"`
+	ZipCode       int32  `validate:"required"`
 	City          string `validate:"required,max=128"`
 	State         string `validate:"required,max=128"`
 	Country       string `validate:"required,max=128"`
