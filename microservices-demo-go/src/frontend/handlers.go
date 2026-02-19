@@ -349,7 +349,7 @@ func (fe *frontendServer) placeOrderHandler(w http.ResponseWriter, r *http.Reque
 			StreetAddress: payload.StreetAddress,
 			City:          payload.City,
 			State:         payload.State,
-			ZipCode:       int32(payload.ZipCode),
+			ZipCode:       string(payload.ZipCode),
 			Country:       payload.Country},
 	})
 	if err != nil {

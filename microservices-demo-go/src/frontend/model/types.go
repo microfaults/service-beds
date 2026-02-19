@@ -25,7 +25,7 @@ type Address struct {
 	City          string `json:"city"`
 	State         string `json:"state"`
 	Country       string `json:"country"`
-	ZipCode       int32  `json:"zip_code"`
+	ZipCode       string  `json:"zip_code"`
 }
 
 type OrderItem struct {
@@ -43,9 +43,9 @@ type Order struct {
 
 type CreditCardInfo struct {
 	CreditCardNumber          string `json:"credit_card_number"`
-	CreditCardExpirationMonth int32  `json:"credit_card_expiration_month"`
-	CreditCardExpirationYear  int32  `json:"credit_card_expiration_year"`
-	CreditCardCvv             int32  `json:"credit_card_cvv"`
+	CreditCardExpirationMonth int32  `json:"expiry_month"`
+	CreditCardExpirationYear  int32  `json:"expiry_year"`
+	CreditCardCvv             int32  `json:"cvv"`
 }
 
 type PlaceOrderRequest struct {

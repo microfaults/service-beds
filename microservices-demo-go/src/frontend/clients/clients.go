@@ -173,16 +173,21 @@ func (c *httpCartClient) GetCart(ctx context.Context, userID string) ([]*model.C
 }
 
 func (c *httpCartClient) AddItem(ctx context.Context, userID, productID string, quantity int32) error {
-	reqBody := struct {
-		ProductId string `json:"product_id"`
-		Quantity  int32  `json:"quantity"`
-	}{
+	reqBody := model.CartItem{
 		ProductId: productID,
 		Quantity:  quantity,
 	}
-	b, _ := json.Marshal(reqBody)
+	reqBodyFix := struct {
+		Item *model.CartItem `json:"item"`
+	}{
+		Item: &reqBody,
+	}
+	fmt.Println("Error adding item to cart:", reqBodyFix)
+	b, _ := json.Marshal(reqBodyFix)
 	resp, err := c.client.Post(fmt.Sprintf("http://%s/cart/%s/items", c.addr, userID), "application/json", bytes.NewReader(b))
+	fmt.Println("Error adding item to cart:", resp)
 	if err != nil {
+		fmt.Println("Error adding item to cart:", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -314,7 +319,7 @@ func NewCheckoutClient(addr string) CheckoutClient {
 
 func (c *httpCheckoutClient) PlaceOrder(ctx context.Context, req *model.PlaceOrderRequest) (*model.Order, error) {
 	b, _ := json.Marshal(req)
-	resp, err := c.client.Post(fmt.Sprintf("http://%s/checkout", c.addr), "application/json", bytes.NewReader(b))
+	resp, err := c.client.Post(fmt.Sprintf("http://%s/placeorder", c.addr), "application/json", bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}
