@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"sync"
@@ -38,6 +39,10 @@ func main() {
 
 	svc := &productCatalog{}
 	handler := &ProductHandler{service: svc}
+
+	if err := watchProductsFile(context.Background()); err != nil {
+		log.Warnf("failed to start file watcher: %v", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /products", handler.ListProducts)

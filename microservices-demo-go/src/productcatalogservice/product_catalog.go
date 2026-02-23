@@ -52,6 +52,7 @@ func (p *productCatalog) parseCatalog() []*Product {
 		if err != nil {
 			return []*Product{}
 		}
+		reloadCatalog = false
 	}
 
 	return p.catalog.Products
