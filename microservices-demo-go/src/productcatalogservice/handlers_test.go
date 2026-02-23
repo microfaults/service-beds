@@ -92,3 +92,31 @@ func TestHandlerSearchProducts(t *testing.T) {
 		t.Errorf("unexpected search results: %+v", response.Results)
 	}
 }
+
+func TestHandlerGetProducts(t *testing.T) {
+	setupMock()
+	handler := &ProductHandler{service: mockProductCatalog}
+
+	req, err := http.NewRequest("GET", "/products/batch?ids=abc001,abc004", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	http.HandlerFunc(handler.GetProducts).ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response struct {
+		Products []*Product `json:"products"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(response.Products) != 2 {
+		t.Errorf("expected 2 products, got %v", len(response.Products))
+	}
+}

@@ -3,7 +3,26 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 )
+
+func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
+	idsParam := r.URL.Query().Get("ids")
+	if idsParam == "" {
+		http.Error(w, "missing 'ids' query parameter", http.StatusBadRequest)
+		return
+	}
+	ids := strings.Split(idsParam, ",")
+	products, err := h.service.GetProducts(r.Context(), ids)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Products []*Product `json:"products"`
+	}{Products: products})
+}
 
 type ProductHandler struct {
 	service *productCatalog

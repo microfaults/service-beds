@@ -32,6 +32,28 @@ func (p *productCatalog) GetProduct(ctx context.Context, id string) (*Product, e
 	return found, nil
 }
 
+func (p *productCatalog) GetProducts(ctx context.Context, ids []string) ([]*Product, error) {
+	time.Sleep(extraLatency)
+	products := p.parseCatalog()
+
+	idSet := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		idSet[id] = true
+	}
+
+	var result []*Product
+	for _, product := range products {
+		if idSet[product.ID] {
+			result = append(result, product)
+		}
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("no products found for the given IDs")
+	}
+	return result, nil
+}
+
 func (p *productCatalog) SearchProducts(ctx context.Context, query string) ([]*Product, error) {
 	time.Sleep(extraLatency)
 	var ps []*Product

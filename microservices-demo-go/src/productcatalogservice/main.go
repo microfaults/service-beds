@@ -46,6 +46,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /products", handler.ListProducts)
+	mux.HandleFunc("GET /products/batch", handler.GetProducts)
 	mux.HandleFunc("GET /products/{id}", handler.GetProduct)
 	mux.HandleFunc("GET /products/search", handler.SearchProducts)
 	mux.HandleFunc("GET /_healthz", func(w http.ResponseWriter, r *http.Request) {
