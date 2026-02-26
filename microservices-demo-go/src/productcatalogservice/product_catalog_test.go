@@ -32,6 +32,12 @@ func setupMock() {
 		ID:   "abc004",
 		Name: "Product Gamma",
 	})
+
+	// Build product map for O(1) lookups
+	mockProductCatalog.productMap = make(map[string]*Product, len(mockProductCatalog.catalog.Products))
+	for _, p := range mockProductCatalog.catalog.Products {
+		mockProductCatalog.productMap[p.ID] = p
+	}
 }
 
 func TestGetProductExists(t *testing.T) {

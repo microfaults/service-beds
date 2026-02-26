@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -97,10 +98,12 @@ func TestHandlerGetProducts(t *testing.T) {
 	setupMock()
 	handler := &ProductHandler{service: mockProductCatalog}
 
-	req, err := http.NewRequest("GET", "/products/batch?ids=abc001,abc004", nil)
+	body := `{"ids": ["abc001", "abc004"]}`
+	req, err := http.NewRequest("POST", "/products/batch", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
 	http.HandlerFunc(handler.GetProducts).ServeHTTP(rr, req)

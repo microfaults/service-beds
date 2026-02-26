@@ -3,17 +3,21 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 )
 
 func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
-	idsParam := r.URL.Query().Get("ids")
-	if idsParam == "" {
-		http.Error(w, "missing 'ids' query parameter", http.StatusBadRequest)
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
 		return
 	}
-	ids := strings.Split(idsParam, ",")
-	products, err := h.service.GetProducts(r.Context(), ids)
+	if len(req.IDs) == 0 {
+		http.Error(w, "missing 'ids' in request body", http.StatusBadRequest)
+		return
+	}
+	products, err := h.service.GetProducts(r.Context(), req.IDs)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

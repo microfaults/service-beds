@@ -8,42 +8,32 @@ import (
 )
 
 type productCatalog struct {
-	catalog Catalog
+	catalog    Catalog
+	productMap map[string]*Product
 }
 
 func (p *productCatalog) ListProducts(ctx context.Context) ([]*Product, error) {
 	time.Sleep(extraLatency)
-	return p.parseCatalog(), nil
+	p.parseCatalog()
+	return p.catalog.Products, nil
 }
 
 func (p *productCatalog) GetProduct(ctx context.Context, id string) (*Product, error) {
 	time.Sleep(extraLatency)
-	var found *Product
-	products := p.parseCatalog()
-	for i := 0; i < len(products); i++ {
-		if id == products[i].ID {
-			found = products[i]
-		}
+	p.parseCatalog()
+	if product, ok := p.productMap[id]; ok {
+		return product, nil
 	}
-
-	if found == nil {
-		return nil, errors.New("no product with ID " + id)
-	}
-	return found, nil
+	return nil, errors.New("no product with ID " + id)
 }
 
 func (p *productCatalog) GetProducts(ctx context.Context, ids []string) ([]*Product, error) {
 	time.Sleep(extraLatency)
-	products := p.parseCatalog()
-
-	idSet := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		idSet[id] = true
-	}
+	p.parseCatalog()
 
 	var result []*Product
-	for _, product := range products {
-		if idSet[product.ID] {
+	for _, id := range ids {
+		if product, ok := p.productMap[id]; ok {
 			result = append(result, product)
 		}
 	}
@@ -56,9 +46,9 @@ func (p *productCatalog) GetProducts(ctx context.Context, ids []string) ([]*Prod
 
 func (p *productCatalog) SearchProducts(ctx context.Context, query string) ([]*Product, error) {
 	time.Sleep(extraLatency)
+	p.parseCatalog()
 	var ps []*Product
-	products := p.parseCatalog()
-	for _, product := range products {
+	for _, product := range p.catalog.Products {
 		if strings.Contains(strings.ToLower(product.Name), strings.ToLower(query)) ||
 			strings.Contains(strings.ToLower(product.Description), strings.ToLower(query)) {
 			ps = append(ps, product)
@@ -68,14 +58,18 @@ func (p *productCatalog) SearchProducts(ctx context.Context, query string) ([]*P
 	return ps, nil
 }
 
-func (p *productCatalog) parseCatalog() []*Product {
+func (p *productCatalog) parseCatalog() {
 	if reloadCatalog || len(p.catalog.Products) == 0 {
 		err := loadCatalog(&p.catalog)
 		if err != nil {
-			return []*Product{}
+			return
 		}
 		reloadCatalog = false
-	}
 
-	return p.catalog.Products
+		// Build the product map for O(1) lookups
+		p.productMap = make(map[string]*Product, len(p.catalog.Products))
+		for _, product := range p.catalog.Products {
+			p.productMap[product.ID] = product
+		}
+	}
 }
