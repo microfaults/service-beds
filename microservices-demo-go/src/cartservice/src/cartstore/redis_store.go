@@ -2,11 +2,11 @@ package cartstore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
-	pb "github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/proto"
+	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/model"
 	"github.com/redis/go-redis/v9"
-	"google.golang.org/protobuf/proto"
 )
 
 type RedisCartStore struct {
@@ -27,26 +27,11 @@ func (s *RedisCartStore) AddItem(ctx context.Context, userID, productID string, 
 		return err
 	}
 
-	// Check if item exists
-	found := false
-	for _, item := range cart.Items {
-		if item.ProductId == productID {
-			item.Quantity += quantity
-			found = true
-			break
-		}
-	}
+	// Add item using helper
+	cart.AddItem(productID, quantity)
 
-	// If not found, add new item
-	if !found {
-		cart.Items = append(cart.Items, &pb.CartItem{
-			ProductId: productID,
-			Quantity:  quantity,
-		})
-	}
-
-	// Save back to Redis
-	data, err := proto.Marshal(cart)
+	// Save back to Redis using JSON
+	data, err := json.Marshal(cart)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cart: %w", err)
 	}
@@ -54,16 +39,16 @@ func (s *RedisCartStore) AddItem(ctx context.Context, userID, productID string, 
 	return s.client.Set(ctx, userID, data, 0).Err()
 }
 
-func (s *RedisCartStore) GetCart(ctx context.Context, userID string) (*pb.Cart, error) {
+func (s *RedisCartStore) GetCart(ctx context.Context, userID string) (*model.Cart, error) {
 	val, err := s.client.Get(ctx, userID).Bytes()
 	if err == redis.Nil {
-		return &pb.Cart{UserId: userID}, nil
+		return &model.Cart{UserID: userID, Items: []*model.CartItem{}}, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get cart from redis: %w", err)
 	}
 
-	cart := &pb.Cart{}
-	if err := proto.Unmarshal(val, cart); err != nil {
+	cart := &model.Cart{}
+	if err := json.Unmarshal(val, cart); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal cart: %w", err)
 	}
 	return cart, nil

@@ -1,7 +1,7 @@
 package main
 
 type Money struct {
-	CurrencyCode string `json:"currencyCode"`
+	CurrencyCode string `json:"currency_code"`
 	Units        int64  `json:"units"`
 	Nanos        int32  `json:"nanos"`
 }
@@ -11,7 +11,7 @@ type Product struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Picture     string   `json:"picture"`
-	PriceUsd    *Money   `json:"priceUsd"`
+	PriceUsd    *Money   `json:"price_usd"`
 	Categories  []string `json:"categories"`
 }
 
