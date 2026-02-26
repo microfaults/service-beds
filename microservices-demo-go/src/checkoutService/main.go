@@ -7,9 +7,11 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"checkoutservice/kafka"
 	"checkoutservice/models"
 	"checkoutservice/money"
 
@@ -46,6 +48,7 @@ type checkoutService struct {
 	emailSvcAddr          string
 	paymentSvcAddr        string
 	httpClient            *http.Client
+	kafkaProducer         *kafka.Producer
 }
 
 func main() {
@@ -66,6 +69,20 @@ func main() {
 	mustMapEnv(&svc.currencySvcAddr, "CURRENCY_SERVICE_ADDR")
 	mustMapEnv(&svc.emailSvcAddr, "EMAIL_SERVICE_ADDR")
 	mustMapEnv(&svc.paymentSvcAddr, "PAYMENT_SERVICE_ADDR")
+
+	// Initialize Kafka producer (optional — service still works without it).
+	if kafkaAddr := os.Getenv("KAFKA_BROKER_ADDR"); kafkaAddr != "" {
+		brokers := strings.Split(kafkaAddr, ",")
+		p, err := kafka.NewProducer(brokers, log)
+		if err != nil {
+			log.Warnf("failed to create Kafka producer: %v (continuing without Kafka)", err)
+		} else {
+			svc.kafkaProducer = p
+			defer p.Close()
+		}
+	} else {
+		log.Warn("KAFKA_BROKER_ADDR not set, Kafka publishing disabled")
+	}
 
 	log.Infof("service config: %+v", svc)
 
@@ -110,6 +127,16 @@ func (cs *checkoutService) handlePlaceOrder(w http.ResponseWriter, r *http.Reque
 	defer r.Body.Close()
 
 	log.Infof("[PlaceOrder] user_id=%q user_currency=%q", req.UserID, req.UserCurrency)
+
+	// Publish checkout request to Kafka (fire-and-forget).
+	if cs.kafkaProducer != nil {
+		payload, err := json.Marshal(req)
+		if err != nil {
+			log.Warnf("failed to marshal checkout request for Kafka: %v", err)
+		} else if err := cs.kafkaProducer.Publish("checkout-requests", req.UserID, payload); err != nil {
+			log.Warnf("failed to publish checkout request to Kafka: %v", err)
+		}
+	}
 
 	orderID, err := uuid.NewUUID()
 	if err != nil {
