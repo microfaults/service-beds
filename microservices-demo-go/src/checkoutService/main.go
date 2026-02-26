@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"checkoutservice/models"
@@ -253,22 +254,44 @@ func (cs *checkoutService) emptyUserCart(userID string) error {
 
 func (cs *checkoutService) prepOrderItems(items []*models.CartItem, userCurrency string) ([]*models.OrderItem, error) {
 	out := make([]*models.OrderItem, len(items))
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errs []error
+	)
 
 	for i, item := range items {
-		product, err := cs.getProduct(item.GetProductId())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get product #%q", item.GetProductId())
-		}
+		wg.Add(1)
+		go func(idx int, cartItem *models.CartItem) {
+			defer wg.Done()
 
-		price, err := cs.convertCurrency(product.GetPriceUsd(), userCurrency)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert price of %q to %s", item.GetProductId(), userCurrency)
-		}
+			product, err := cs.getProduct(cartItem.GetProductId())
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("failed to get product #%q", cartItem.GetProductId()))
+				mu.Unlock()
+				return
+			}
 
-		out[i] = &models.OrderItem{
-			Item: item,
-			Cost: price,
-		}
+			price, err := cs.convertCurrency(product.GetPriceUsd(), userCurrency)
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("failed to convert price of %q to %s", cartItem.GetProductId(), userCurrency))
+				mu.Unlock()
+				return
+			}
+
+			out[idx] = &models.OrderItem{
+				Item: cartItem,
+				Cost: price,
+			}
+		}(i, item)
+	}
+
+	wg.Wait()
+
+	if len(errs) > 0 {
+		return nil, errs[0]
 	}
 
 	return out, nil
