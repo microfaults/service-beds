@@ -11,8 +11,41 @@ import (
 	"cloud.google.com/go/alloydbconn"
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
+	"github.com/fsnotify/fsnotify"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func watchProductsFile(ctx context.Context) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create file watcher: %w", err)
+	}
+
+	go func() {
+		defer watcher.Close()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+					log.Infof("detected change in %s, flagging catalog for reload", event.Name)
+					reloadCatalog = true
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Warnf("file watcher error: %v", err)
+			}
+		}
+	}()
+
+	return watcher.Add("products.json")
+}
 
 func loadCatalog(catalog *Catalog) error {
 	catalogMutex.Lock()
