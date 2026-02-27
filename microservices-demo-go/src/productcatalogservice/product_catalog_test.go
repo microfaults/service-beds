@@ -32,6 +32,12 @@ func setupMock() {
 		ID:   "abc004",
 		Name: "Product Gamma",
 	})
+
+	// Build product map for O(1) lookups
+	mockProductCatalog.productMap = make(map[string]*Product, len(mockProductCatalog.catalog.Products))
+	for _, p := range mockProductCatalog.catalog.Products {
+		mockProductCatalog.productMap[p.ID] = p
+	}
 }
 
 func TestGetProductExists(t *testing.T) {
@@ -75,5 +81,24 @@ func TestSearchProducts(t *testing.T) {
 	}
 	if got, want := len(products), 2; got != want {
 		t.Errorf("got %d, want %d", got, want)
+	}
+}
+
+func TestGetProducts(t *testing.T) {
+	setupMock()
+	products, err := mockProductCatalog.GetProducts(context.Background(), []string{"abc001", "abc003"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(products), 2; got != want {
+		t.Errorf("got %d, want %d", got, want)
+	}
+}
+
+func TestGetProductsNotFound(t *testing.T) {
+	setupMock()
+	_, err := mockProductCatalog.GetProducts(context.Background(), []string{"xyz999"})
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }

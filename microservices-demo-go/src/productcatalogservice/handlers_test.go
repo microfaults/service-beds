@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -90,5 +91,35 @@ func TestHandlerSearchProducts(t *testing.T) {
 
 	if len(response.Results) != 1 || response.Results[0].Name != "Product Delta" {
 		t.Errorf("unexpected search results: %+v", response.Results)
+	}
+}
+
+func TestHandlerGetProducts(t *testing.T) {
+	setupMock()
+	handler := &ProductHandler{service: mockProductCatalog}
+
+	body := `{"ids": ["abc001", "abc004"]}`
+	req, err := http.NewRequest("POST", "/products/batch", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	http.HandlerFunc(handler.GetProducts).ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response struct {
+		Products []*Product `json:"products"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(response.Products) != 2 {
+		t.Errorf("expected 2 products, got %v", len(response.Products))
 	}
 }
