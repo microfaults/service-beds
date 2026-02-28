@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,8 +13,11 @@ import (
 	"checkoutservice/models"
 	"checkoutservice/money"
 
+	telemetry "checkoutservice/telemetry"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const (
@@ -49,13 +53,29 @@ type checkoutService struct {
 
 func main() {
 	port := listenPort
+	ctx := context.Background()
+
+	if os.Getenv("ENABLE_TRACING") == "1" {
+		log.Info("Tracing enabled.")
+		tp, err := telemetry.InitTracing(log, ctx)
+		if err != nil {
+			log.Warnf("warn: failed to initialize tracing: %v", err)
+		}
+		if tp != nil {
+			defer tp.Shutdown(ctx)
+		}
+	} else {
+		log.Info("Tracing disabled.")
+	}
+
 	if os.Getenv("PORT") != "" {
 		port = os.Getenv("PORT")
 	}
 
 	svc := &checkoutService{
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+			Timeout:   10 * time.Second,
 		},
 	}
 
@@ -68,14 +88,15 @@ func main() {
 
 	log.Infof("service config: %+v", svc)
 
-	// Set up HTTP routes
-	http.HandleFunc("/placeorder", svc.handlePlaceOrder)
-	http.HandleFunc("/_healthz", svc.handleHealth)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/placeorder", svc.handlePlaceOrder)
+	mux.HandleFunc("/_healthz", svc.handleHealth)
+
+	var handler http.Handler = mux
+	handler = otelhttp.NewHandler(handler, "checkoutservice")
 
 	log.Infof("starting to listen on http://:%s", port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil); err != nil {
-		log.Fatal(err)
-	}
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
 
 func mustMapEnv(target *string, envKey string) {
@@ -149,7 +170,7 @@ func (cs *checkoutService) handlePlaceOrder(w http.ResponseWriter, r *http.Reque
 		http.Error(w, fmt.Sprintf("shipping error: %v", err), http.StatusServiceUnavailable)
 		return
 	}
-
+	//
 	_ = cs.emptyUserCart(req.UserID)
 
 	orderResult := &models.OrderResult{

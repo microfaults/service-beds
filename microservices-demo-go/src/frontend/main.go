@@ -11,10 +11,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
+	telemetry "github.com/GoogleCloudPlatform/microservices-demo-go/src/frontend/telemetry"
 )
 
 const (
@@ -55,6 +53,7 @@ type frontendServer struct {
 }
 
 func main() {
+
 	ctx := context.Background()
 	log := logrus.New()
 	log.Level = logrus.DebugLevel
@@ -68,19 +67,20 @@ func main() {
 	}
 	log.Out = os.Stdout
 
-	otel.SetTextMapPropagator(
-		propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{}, propagation.Baggage{}))
-
 	baseUrl = os.Getenv("BASE_URL")
 
 	if os.Getenv("ENABLE_TRACING") == "1" {
 		log.Info("Tracing enabled.")
-		initTracing(log, ctx)
+		tp, err := telemetry.InitTracing(log, ctx)
+		if err != nil {
+			log.Warnf("warn: failed to initialize tracing: %v", err)
+		}
+		if tp != nil {
+			defer tp.Shutdown(ctx)
+		}
 	} else {
 		log.Info("Tracing disabled.")
 	}
-
 	srvPort := port
 	if os.Getenv("PORT") != "" {
 		srvPort = os.Getenv("PORT")
@@ -144,33 +144,6 @@ func main() {
 
 	log.Infof("starting server on %s:%s", addr, srvPort)
 	log.Fatal(http.ListenAndServe(addr+":"+srvPort, handler))
-}
-
-func initTracing(log logrus.FieldLogger, ctx context.Context) (*sdktrace.TracerProvider, error) {
-	collectorAddr := os.Getenv("COLLECTOR_SERVICE_ADDR")
-	if collectorAddr == "" {
-		log.Info("COLLECTOR_SERVICE_ADDR not set, tracing exporter not initialized")
-		return nil, nil
-	}
-
-	// Create exporter for OTLP
-	// Insecure for demo purposes
-	exporter, err := otlptracegrpc.New(
-		ctx,
-		otlptracegrpc.WithEndpoint(collectorAddr),
-		otlptracegrpc.WithInsecure(),
-	)
-	if err != nil {
-		log.Warnf("warn: Failed to create trace exporter: %v", err)
-		return nil, err
-	}
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	otel.SetTracerProvider(tp)
-
-	return tp, nil
 }
 
 func mustMapEnv(target *string, envKey string) {
