@@ -1,18 +1,17 @@
 package telemetry
 
 import (
-    "context"
-    "os"
+	"context"
+	"os"
 
-    "github.com/sirupsen/logrus"
-    "go.opentelemetry.io/otel"
-    "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-    "go.opentelemetry.io/otel/propagation"
-    "go.opentelemetry.io/otel/sdk/resource"
-    sdktrace "go.opentelemetry.io/otel/sdk/trace"
-    semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
-
 
 func InitTracing(log logrus.FieldLogger, ctx context.Context) (*sdktrace.TracerProvider, error) {
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
@@ -37,23 +36,22 @@ func InitTracing(log logrus.FieldLogger, ctx context.Context) (*sdktrace.TracerP
 	}
 
 	res, err := resource.New(ctx,
-        resource.WithAttributes(
-            semconv.ServiceNameKey.String("currencyservice"),
-        ),
-    )
-    if err != nil {
-        log.Warnf("warn: Failed to create resource: %v", err)
-        return nil, err
-    }
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String("frontend"),
+		),
+	)
+	if err != nil {
+		log.Warnf("warn: Failed to create resource: %v", err)
+		return nil, err
+	}
 
-    
-    tp := sdktrace.NewTracerProvider(
-        sdktrace.WithBatcher(exporter),
-        sdktrace.WithSampler(sdktrace.AlwaysSample()),
-        sdktrace.WithResource(res),
-    )
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithResource(res),
+	)
 
-    otel.SetTracerProvider(tp)
+	otel.SetTracerProvider(tp)
 
 	return tp, nil
 }
