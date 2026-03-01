@@ -204,6 +204,10 @@ func (c *httpCartClient) GetCart(ctx context.Context, userID string) ([]*model.C
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get cart: status %d", resp.StatusCode)
+	}
+
 	var out struct {
 		Items []*model.CartItem `json:"items"`
 	}
@@ -214,63 +218,63 @@ func (c *httpCartClient) GetCart(ctx context.Context, userID string) ([]*model.C
 }
 
 func (c *httpCartClient) AddItem(ctx context.Context, userID, productID string, quantity int32) error {
-    reqBody := struct {
-        ProductId string `json:"product_id"`
-        Quantity  int32  `json:"quantity"`
-    }{
-        ProductId: productID,
-        Quantity:  quantity,
-    }
+	reqBody := struct {
+		ProductId string `json:"product_id"`
+		Quantity  int32  `json:"quantity"`
+	}{
+		ProductId: productID,
+		Quantity:  quantity,
+	}
 
-    b, err := json.Marshal(reqBody)
-    if err != nil {
-        return err
-    }
+	b, err := json.Marshal(reqBody)
+	if err != nil {
+		return err
+	}
 
-    req, err := http.NewRequestWithContext(
-        ctx,
-        http.MethodPost,
-        fmt.Sprintf("http://%s/cart/%s/items", c.addr, userID),
-        bytes.NewReader(b),
-    )
-    if err != nil {
-        return err
-    }
-    req.Header.Set("Content-Type", "application/json")
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("http://%s/cart/%s/items", c.addr, userID),
+		bytes.NewReader(b),
+	)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
 
-    resp, err := c.client.Do(req)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-        return fmt.Errorf("failed to add item: status %d", resp.StatusCode)
-    }
-    return nil
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("failed to add item: status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func (c *httpCartClient) EmptyCart(ctx context.Context, userID string) error {
-    req, err := http.NewRequestWithContext(
-        ctx,
-        http.MethodDelete,
-        fmt.Sprintf("http://%s/cart/%s", c.addr, userID),
-        nil,
-    )
-    if err != nil {
-        return err
-    }
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodDelete,
+		fmt.Sprintf("http://%s/cart/%s", c.addr, userID),
+		nil,
+	)
+	if err != nil {
+		return err
+	}
 
-    resp, err := c.client.Do(req)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-    if resp.StatusCode != http.StatusOK {
-        return fmt.Errorf("failed to empty cart: status %d", resp.StatusCode)
-    }
-    return nil
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to empty cart: status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 type httpRecommendationClient struct {
@@ -434,11 +438,17 @@ func NewAdClient(addr string) AdClient {
 		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
 	}
 }
-
 func (c *httpAdClient) GetAds(ctx context.Context, contextKeys []string) ([]*model.Ad, error) {
-	// GET /ads?context_keys=...
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/ads", c.addr), nil)
-if err != nil { return nil, err }
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,                          
+		fmt.Sprintf("http://%s/ads", c.addr),    
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	q := req.URL.Query()
 	for _, k := range contextKeys {
 		q.Add("context_keys", k)
@@ -447,9 +457,10 @@ if err != nil { return nil, err }
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, err  
 	}
 	defer resp.Body.Close()
+
 	var out model.AdResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
