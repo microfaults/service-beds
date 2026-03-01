@@ -77,7 +77,7 @@ An HTTP service that serves product data from an in-memory catalog (loaded/watch
 ## Recommendation Service Entry Points → Downstream Services
 
 ### Summary
-An HTTP service that returns recommended product IDs (or recommendations) based on user/product context. In the version you showed, it does **not** call other microservices (frontend may fetch product details separately).
+An HTTP service that returns recommended product IDs (or recommendations) based on user/product context. It does **not** call other microservices (frontend may fetch product details separately).
 
 ### APIs / Entry Points
 | Method | Path | Downstream Services Called |
@@ -90,7 +90,7 @@ An HTTP service that returns recommended product IDs (or recommendations) based 
 ## Ad Service Entry Points → Downstream Services
 
 ### Summary
-A lightweight HTTP service that returns contextual ads based on `context_keys` query params. Ads are selected from an in-memory dataset. It does **not** call other microservices.
+An HTTP service that returns contextual ads based on `context_keys` query params. Ads are selected from an in-memory dataset. It does **not** call other microservices.
 
 ### APIs / Entry Points
 | Method | Path | Downstream Services Called |
