@@ -4,7 +4,7 @@
 An HTTP service that provides AI-powered product recommendations.  
 It:
 
-1. Uses an LLM (e.g., Gemini or mock backend) to describe a room or user request.
+1. Uses an LLM to describe a room or user request.
 2. Generates embeddings for semantic search.
 3. Queries a product database (AlloyDB, Postgres, or mock store).
 4. Uses the LLM again to generate final recommendations.

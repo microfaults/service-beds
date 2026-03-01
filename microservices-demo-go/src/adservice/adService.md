@@ -1,7 +1,9 @@
 # Ad Service Entry Points → Downstream Services
 
 ## Summary
-A HTTP service that serves contextually relevant advertisements based on category keywords. It selects ads from a pre-populated in-memory map, falling back to random ads when no matching categories are found.
+A HTTP service that returns contextual ads based on `context_keys` query params.  
+Ads are selected from an in-memory dataset via `NewService()` / `GetAdsByCategory(...)`.  
+This service does **not** call any downstream microservices.
 ---
 ## APIs / Entry Points
 | Method | Path | Downstream Services Called |
