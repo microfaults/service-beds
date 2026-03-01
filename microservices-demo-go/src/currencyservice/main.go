@@ -33,8 +33,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+
 )
 
 const (
@@ -75,13 +74,16 @@ func main() {
 			propagation.TraceContext{}, propagation.Baggage{}))
 
 	if os.Getenv("ENABLE_TRACING") == "1" {
-		log.Info("Tracing enabled.")
-		if err := initTracing(ctx); err != nil {
-			log.Warnf("warn: failed to initialize tracing: %v", err)
-		}
-	} else {
-		log.Info("Tracing disabled.")
+	log.Info("Tracing enabled.")
+	_, cleanup, err := initTracing(ctx)
+	if err != nil {
+		log.Warnf("warn: failed to initialize tracing: %v", err)
+	} else if cleanup != nil {
+		defer cleanup()
 	}
+} else {
+	log.Info("Tracing disabled.")
+}
 
 	if profilerEnabled() {
 		log.Info("Profiling enabled.")
@@ -154,33 +156,35 @@ func initProfiling(log logrus.FieldLogger, serviceName, version string) {
 	}
 	log.Warn("warning: could not initialize profiler after retrying, giving up")
 }
+func initTracing(ctx context.Context) (*sdktrace.TracerProvider, func(), error) {
+    collector := os.Getenv("COLLECTOR_SERVICE_ADDR")
+    if collector == "" {
+        return nil, nil, fmt.Errorf("COLLECTOR_SERVICE_ADDR not set")
+    }
 
-func initTracing(ctx context.Context) error {
-	collector := os.Getenv("COLLECTOR_SERVICE_ADDR")
-	if collector == "" {
-		return fmt.Errorf("COLLECTOR_SERVICE_ADDR not set")
-	}
+    ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+    defer cancel()
 
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
+    exporter, err := otlptracegrpc.New(
+        ctx,
+        otlptracegrpc.WithEndpoint(collector),
+        otlptracegrpc.WithInsecure(),
+    )
+    if err != nil {
+        return nil, nil, err
+    }
 
-	conn, err := grpc.NewClient(collector,
-		grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return err
-	}
+    tp := sdktrace.NewTracerProvider(
+        sdktrace.WithBatcher(exporter),
+        sdktrace.WithSampler(sdktrace.AlwaysSample()),
+    )
+    otel.SetTracerProvider(tp)
 
-	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
-	if err != nil {
-		return err
-	}
+    cleanup := func() {
+        _ = tp.Shutdown(context.Background())
+    }
 
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-	)
-	otel.SetTracerProvider(tp)
-	return nil
+    return tp, cleanup, nil
 }
 
 func (s *service) loadRates() error {

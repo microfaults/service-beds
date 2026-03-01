@@ -12,9 +12,18 @@ import (
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/cartstore"
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/model"
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/service"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 )
 
 func main() {
+	ctx := context.Background()
+
+otel.SetTextMapPropagator(
+  propagation.NewCompositeTextMapPropagator(
+    propagation.TraceContext{}, propagation.Baggage{},
+  ),
+)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "7070" // Default to original port if not specified
@@ -26,7 +35,11 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-
+	if os.Getenv("ENABLE_TRACING") == "1" {
+  if err := initTracing(ctx); err != nil {
+    log.Printf("failed to initialize tracing: %v", err)
+  }
+}
 	var store cartstore.CartStore
 	redisAddr := os.Getenv("REDIS_ADDR")
 	alloyDBPrimaryIP := os.Getenv("ALLOYDB_PRIMARY_IP")
@@ -140,8 +153,42 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	log.Printf("HTTP server listening on :%s", port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux); err != nil {
-		log.Fatalf("failed to serve HTTP: %v", err)
-	}
+	handler := otelhttp.NewHandler(mux, "cartservice")
+
+log.Printf("HTTP server listening on :%s", port)
+if err := http.ListenAndServe(fmt.Sprintf(":%s", port), handler); err != nil {
+    log.Fatalf("failed to serve HTTP: %v", err)
+}
+}
+
+
+func initTracing(ctx context.Context) (*sdktrace.TracerProvider, func(), error) {
+    collector := os.Getenv("COLLECTOR_SERVICE_ADDR")
+    if collector == "" {
+        return nil, nil, fmt.Errorf("COLLECTOR_SERVICE_ADDR not set")
+    }
+
+    ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+    defer cancel()
+
+    exporter, err := otlptracegrpc.New(
+        ctx,
+        otlptracegrpc.WithEndpoint(collector),
+        otlptracegrpc.WithInsecure(),
+    )
+    if err != nil {
+        return nil, nil, err
+    }
+
+    tp := sdktrace.NewTracerProvider(
+        sdktrace.WithBatcher(exporter),
+        sdktrace.WithSampler(sdktrace.AlwaysSample()),
+    )
+    otel.SetTracerProvider(tp)
+
+    cleanup := func() {
+        _ = tp.Shutdown(context.Background())
+    }
+
+    return tp, cleanup, nil
 }
