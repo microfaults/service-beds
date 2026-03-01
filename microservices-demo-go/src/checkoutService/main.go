@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 const (
@@ -48,6 +54,25 @@ type checkoutService struct {
 }
 
 func main() {
+
+	ctx := context.Background()
+
+	// Propagate trace context even if tracing is disabled.
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{}, propagation.Baggage{}))
+
+	if os.Getenv("ENABLE_TRACING") == "1" {
+	log.Info("Tracing enabled.")
+	_, cleanup, err := initTracing(ctx)
+	if err != nil {
+		log.Warnf("warn: failed to initialize tracing: %v", err)
+	} else if cleanup != nil {
+		defer cleanup()
+	}
+} else {
+	log.Info("Tracing disabled.")
+}
 	port := listenPort
 	if os.Getenv("PORT") != "" {
 		port = os.Getenv("PORT")
@@ -69,13 +94,47 @@ func main() {
 	log.Infof("service config: %+v", svc)
 
 	// Set up HTTP routes
-	http.HandleFunc("/placeorder", svc.handlePlaceOrder)
-	http.HandleFunc("/_healthz", svc.handleHealth)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/placeorder", svc.handlePlaceOrder)
+	mux.HandleFunc("/_healthz", svc.handleHealth)
 
-	log.Infof("starting to listen on http://:%s", port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil); err != nil {
-		log.Fatal(err)
-	}
+	var handler http.Handler = mux
+	handler = otelhttp.NewHandler(handler, "checkoutservice")
+
+	addr := ":" + port
+	log.Infof("starting HTTP server on %s", addr)
+	log.Fatal(http.ListenAndServe(addr, handler))
+}
+
+func initTracing(ctx context.Context) (*sdktrace.TracerProvider, func(), error) {
+    collector := os.Getenv("COLLECTOR_SERVICE_ADDR")
+    if collector == "" {
+        return nil, nil, fmt.Errorf("COLLECTOR_SERVICE_ADDR not set")
+    }
+
+    ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+    defer cancel()
+
+    exporter, err := otlptracegrpc.New(
+        ctx,
+        otlptracegrpc.WithEndpoint(collector),
+        otlptracegrpc.WithInsecure(),
+    )
+    if err != nil {
+        return nil, nil, err
+    }
+
+    tp := sdktrace.NewTracerProvider(
+        sdktrace.WithBatcher(exporter),
+        sdktrace.WithSampler(sdktrace.AlwaysSample()),
+    )
+    otel.SetTracerProvider(tp)
+
+    cleanup := func() {
+        _ = tp.Shutdown(context.Background())
+    }
+
+    return tp, cleanup, nil
 }
 
 func mustMapEnv(target *string, envKey string) {
