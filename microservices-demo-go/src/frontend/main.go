@@ -73,13 +73,18 @@ func main() {
 			propagation.TraceContext{}, propagation.Baggage{}))
 
 	baseUrl = os.Getenv("BASE_URL")
-
-	if os.Getenv("ENABLE_TRACING") == "1" {
-		log.Info("Tracing enabled.")
-		initTracing(log, ctx)
-	} else {
-		log.Info("Tracing disabled.")
+	
+	tp, err := initTracing(log, ctx)
+	if err != nil {
+		log.Fatalf("failed to initialize tracing: %v", err)
 	}
+	if tp != nil {
+    defer func() {
+        if err := tp.Shutdown(context.Background()); err != nil {
+            log.Errorf("failed to shutdown TracerProvider: %v", err)
+        }
+    }()
+}
 
 	srvPort := port
 	if os.Getenv("PORT") != "" {

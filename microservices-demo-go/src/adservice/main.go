@@ -21,20 +21,13 @@ func main() {
 	service := NewService()
 
 	http.HandleFunc("/ads", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var req AdRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		logger.Info("received ad request", "context_keys", req.ContextKeys)
-
-		ads := service.GetAdsByCategory(req.ContextKeys)
+    if r.Method != http.MethodGet {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+    contextKeys := r.URL.Query()["context_keys"]
+    logger.Info("received ad request", "context_keys", contextKeys)
+    ads := service.GetAdsByCategory(contextKeys)
 		resp := AdResponse{Ads: ads}
 
 		w.Header().Set("Content-Type", "application/json")

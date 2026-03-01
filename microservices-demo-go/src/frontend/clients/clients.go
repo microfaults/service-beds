@@ -58,7 +58,9 @@ func NewCurrencyClient(addr string) CurrencyClient {
 }
 
 func (c *httpCurrencyClient) GetSupportedCurrencies(ctx context.Context) ([]string, error) {
-	resp, err := c.client.Get(fmt.Sprintf("http://%s/currencies", c.addr))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/currencies", c.addr), nil)
+	if err != nil { return nil, err }
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +82,19 @@ func (c *httpCurrencyClient) Convert(ctx context.Context, from *model.Money, toC
 		From:   from,
 		ToCode: toCurrency,
 	}
-	b, _ := json.Marshal(reqBody)
-	resp, err := c.client.Post(fmt.Sprintf("http://%s/convert", c.addr), "application/json", bytes.NewReader(b))
+	b, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(
+    ctx,
+    http.MethodPost,
+    fmt.Sprintf("http://%s/convert", c.addr),
+    bytes.NewReader(b),
+)
+if err != nil { return nil, err }
+req.Header.Set("Content-Type", "application/json")
+resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -104,37 +117,57 @@ func NewProductCatalogClient(addr string) ProductCatalogClient {
 		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
 	}
 }
-
 func (c *httpProductCatalogClient) ListProducts(ctx context.Context) ([]*model.Product, error) {
-	resp, err := c.client.Get(fmt.Sprintf("http://%s/products", c.addr))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+    req, err := http.NewRequestWithContext(
+        ctx,
+        http.MethodGet,
+        fmt.Sprintf("http://%s/products", c.addr),
+        nil,
+    )
+    if err != nil {
+        return nil, err
+    }
 
-	// Check for non-200 status code
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to list products: status %d", resp.StatusCode)
-	}
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
 
-	var out struct {
-		Products []*model.Product `json:"products"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, errors.Wrap(err, "failed to decode products")
-	}
-	return out.Products, nil
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("failed to list products: status %d", resp.StatusCode)
+    }
+
+    var out struct {
+        Products []*model.Product `json:"products"`
+    }
+    if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+        return nil, errors.Wrap(err, "failed to decode products")
+    }
+    return out.Products, nil
 }
 
 func (c *httpProductCatalogClient) GetProduct(ctx context.Context, id string) (*model.Product, error) {
-	resp, err := c.client.Get(fmt.Sprintf("http://%s/products/%s", c.addr, id))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("http://%s/products/%s", c.addr, id),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get product %s: status %d", id, resp.StatusCode)
 	}
+
 	var out model.Product
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
@@ -155,11 +188,26 @@ func NewCartClient(addr string) CartClient {
 }
 
 func (c *httpCartClient) GetCart(ctx context.Context, userID string) ([]*model.CartItem, error) {
-	resp, err := c.client.Get(fmt.Sprintf("http://%s/cart/%s", c.addr, userID))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("http://%s/cart/%s", c.addr, userID),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get cart: status %d", resp.StatusCode)
+	}
+
 	var out struct {
 		Items []*model.CartItem `json:"items"`
 	}
@@ -177,12 +225,29 @@ func (c *httpCartClient) AddItem(ctx context.Context, userID, productID string, 
 		ProductId: productID,
 		Quantity:  quantity,
 	}
-	b, _ := json.Marshal(reqBody)
-	resp, err := c.client.Post(fmt.Sprintf("http://%s/cart/%s/items", c.addr, userID), "application/json", bytes.NewReader(b))
+
+	b, err := json.Marshal(reqBody)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("http://%s/cart/%s/items", c.addr, userID),
+		bytes.NewReader(b),
+	)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("failed to add item: status %d", resp.StatusCode)
 	}
@@ -190,15 +255,22 @@ func (c *httpCartClient) AddItem(ctx context.Context, userID, productID string, 
 }
 
 func (c *httpCartClient) EmptyCart(ctx context.Context, userID string) error {
-	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://%s/cart/%s", c.addr, userID), nil)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodDelete,
+		fmt.Sprintf("http://%s/cart/%s", c.addr, userID),
+		nil,
+	)
 	if err != nil {
 		return err
 	}
+
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to empty cart: status %d", resp.StatusCode)
 	}
@@ -222,7 +294,8 @@ func NewRecommendationClient(addr string, pc ProductCatalogClient) Recommendatio
 func (c *httpRecommendationClient) ListRecommendations(ctx context.Context, userID string, productIDs []string) ([]*model.Product, error) {
 	// Query params for productIDs? Or POST?
 	// Assuming GET /recommendations?product_ids=...&user_id=...
-	req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s/recommendations", c.addr), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/recommendations", c.addr), nil)
+if err != nil { return nil, err }
 	q := req.URL.Query()
 	q.Add("user_id", userID)
 	for _, pid := range productIDs {
@@ -269,32 +342,44 @@ func NewShippingClient(addr string) ShippingClient {
 		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
 	}
 }
-
 func (c *httpShippingClient) GetQuote(ctx context.Context, items []*model.CartItem, currency string) (*model.Money, error) {
 	reqBody := struct {
 		Items    []*model.CartItem `json:"items"`
-		Currency string            `json:"currency"` // Assuming shipping service can handle currency, otherwise consumer converts?
+		Currency string            `json:"currency"`
 	}{
 		Items:    items,
 		Currency: currency,
 	}
-	// The original gRPC GetQuoteRequest has Address and Items.
-	// We should probably check the original method again.
-	// rpc.go: GetQuoteRequest{Address: nil, Items: items}
 
-	b, _ := json.Marshal(reqBody)
-	resp, err := c.client.Post(fmt.Sprintf("http://%s/shipping/quote", c.addr), "application/json", bytes.NewReader(b))
+	b, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("http://%s/shipping/quote", c.addr),
+		bytes.NewReader(b),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	var out struct {
 		CostUsd *model.Money `json:"cost_usd"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
 	}
-	return out.CostUsd, nil // Consumer (frontend) will convert currency
+	return out.CostUsd, nil
 }
 
 type httpCheckoutClient struct {
@@ -308,17 +393,33 @@ func NewCheckoutClient(addr string) CheckoutClient {
 		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
 	}
 }
+func (c *httpCheckoutClient) PlaceOrder(ctx context.Context, reqBody *model.PlaceOrderRequest) (*model.Order, error) {
+	b, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
 
-func (c *httpCheckoutClient) PlaceOrder(ctx context.Context, req *model.PlaceOrderRequest) (*model.Order, error) {
-	b, _ := json.Marshal(req)
-	resp, err := c.client.Post(fmt.Sprintf("http://%s/placeorder", c.addr), "application/json", bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("http://%s/placeorder", c.addr),
+		bytes.NewReader(b),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("checkout failed: %d", resp.StatusCode)
 	}
+
 	var out model.PlaceOrderResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
@@ -337,10 +438,17 @@ func NewAdClient(addr string) AdClient {
 		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
 	}
 }
-
 func (c *httpAdClient) GetAds(ctx context.Context, contextKeys []string) ([]*model.Ad, error) {
-	// GET /ads?context_keys=...
-	req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s/ads", c.addr), nil)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,                          
+		fmt.Sprintf("http://%s/ads", c.addr),    
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	q := req.URL.Query()
 	for _, k := range contextKeys {
 		q.Add("context_keys", k)
@@ -349,9 +457,10 @@ func (c *httpAdClient) GetAds(ctx context.Context, contextKeys []string) ([]*mod
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, err  
 	}
 	defer resp.Body.Close()
+
 	var out model.AdResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
