@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"checkoutservice/money"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,6 +47,7 @@ type checkoutService struct {
 	emailSvcAddr          string
 	paymentSvcAddr        string
 	httpClient            *http.Client
+	popularityDB          *pgxpool.Pool
 }
 
 func main() {
@@ -65,6 +68,34 @@ func main() {
 	mustMapEnv(&svc.currencySvcAddr, "CURRENCY_SERVICE_ADDR")
 	mustMapEnv(&svc.emailSvcAddr, "EMAIL_SERVICE_ADDR")
 	mustMapEnv(&svc.paymentSvcAddr, "PAYMENT_SERVICE_ADDR")
+
+	// Connect to popularity PostgreSQL database
+	dbConnStr := os.Getenv("POPULARITY_DB_CONN")
+	if dbConnStr != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		pool, err := pgxpool.New(ctx, dbConnStr)
+		if err != nil {
+			log.Warnf("failed to connect to popularity database: %v", err)
+		} else {
+			svc.popularityDB = pool
+			// Create the checkout_counts table if it doesn't exist
+			_, err := pool.Exec(ctx, `
+				CREATE TABLE IF NOT EXISTS checkout_counts (
+					product_id     TEXT PRIMARY KEY,
+					total_quantity BIGINT NOT NULL DEFAULT 0
+				)
+			`)
+			if err != nil {
+				log.Warnf("failed to create checkout_counts table: %v", err)
+			} else {
+				log.Info("popularity database connected and schema initialized")
+			}
+		}
+	} else {
+		log.Info("POPULARITY_DB_CONN not set, popularity tracking disabled")
+	}
 
 	log.Infof("service config: %+v", svc)
 
@@ -151,6 +182,23 @@ func (cs *checkoutService) handlePlaceOrder(w http.ResponseWriter, r *http.Reque
 	}
 
 	_ = cs.emptyUserCart(req.UserID)
+
+	// Record checkout counts in popularity database
+	if cs.popularityDB != nil {
+		for _, item := range prep.orderItems {
+			productID := item.Item.GetProductId()
+			quantity := int64(item.Item.GetQuantity())
+			_, err := cs.popularityDB.Exec(r.Context(), `
+				INSERT INTO checkout_counts (product_id, total_quantity)
+				VALUES ($1, $2)
+				ON CONFLICT (product_id)
+				DO UPDATE SET total_quantity = checkout_counts.total_quantity + EXCLUDED.total_quantity
+			`, productID, quantity)
+			if err != nil {
+				log.Warnf("failed to record checkout count for product %q: %v", productID, err)
+			}
+		}
+	}
 
 	orderResult := &models.OrderResult{
 		OrderID:            orderID.String(),

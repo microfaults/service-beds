@@ -31,6 +31,7 @@ ENV CART_SERVICE_ADDR=5053
 ENV CURRENCY_SERVICE_ADDR=5054
 ENV EMAIL_SERVICE_ADDR=5055
 ENV PAYMENT_SERVICE_ADDR=5056
+ENV POPULARITY_DB_CONN=postgres://popularity:popularity@popularity-db:5432/popularity?sslmode=disable
 
 EXPOSE 5050
 ENTRYPOINT ["/src/checkoutservice"]

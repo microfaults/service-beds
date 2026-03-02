@@ -220,17 +220,15 @@ func NewRecommendationClient(addr string, pc ProductCatalogClient) Recommendatio
 }
 
 func (c *httpRecommendationClient) ListRecommendations(ctx context.Context, userID string, productIDs []string) ([]*model.Product, error) {
-	// Query params for productIDs? Or POST?
-	// Assuming GET /recommendations?product_ids=...&user_id=...
-	req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s/recommendations", c.addr), nil)
-	q := req.URL.Query()
-	q.Add("user_id", userID)
-	for _, pid := range productIDs {
-		q.Add("product_ids", pid)
-	}
-	req.URL.RawQuery = q.Encode()
+	reqBody, _ := json.Marshal(struct {
+		UserID     string   `json:"user_id"`
+		ProductIDs []string `json:"product_ids"`
+	}{
+		UserID:     userID,
+		ProductIDs: productIDs,
+	})
 
-	resp, err := c.client.Do(req)
+	resp, err := c.client.Post(fmt.Sprintf("http://%s/recommendations", c.addr), "application/json", bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +242,6 @@ func (c *httpRecommendationClient) ListRecommendations(ctx context.Context, user
 		ProductIds []string `json:"product_ids"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		// Try decoding generic list if needed, or assume struct wrapper
 		return nil, err
 	}
 

@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"net/http"
+	"sort"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -14,15 +17,23 @@ const maxResponses = 5
 
 // RecommendationService implements the recommendation business logic.
 type RecommendationService struct {
-	catalogAddr string
-	httpClient  *http.Client
+	catalogAddr  string
+	httpClient   *http.Client
+	popularityDB *pgxpool.Pool
+	logger       *slog.Logger
 }
 
 // NewRecommendationService creates a new RecommendationService.
 // The catalogAddr should be the host:port of the product catalog service (e.g. "productcatalogservice:3550").
-func NewRecommendationService(catalogAddr string) *RecommendationService {
+// The pool may be nil, in which case the service falls back to random recommendations.
+func NewRecommendationService(catalogAddr string, pool *pgxpool.Pool, logger *slog.Logger) *RecommendationService {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &RecommendationService{
-		catalogAddr: catalogAddr,
+		catalogAddr:  catalogAddr,
+		popularityDB: pool,
+		logger:       logger,
 		httpClient: &http.Client{
 			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
@@ -58,19 +69,83 @@ func (s *RecommendationService) ListRecommendations(ctx context.Context, req *Li
 		}
 	}
 
-	// 4. Sample up to maxResponses from the filtered list
-	numReturn := min(maxResponses, len(filtered))
+	// 4. Try popularity-based ordering; fall back to random sampling
+	prodList := s.sortByPopularity(ctx, filtered)
 
-	// Sample random indices
-	indices := rand.Perm(len(filtered))[:numReturn]
-	prodList := make([]string, numReturn)
-	for i, idx := range indices {
-		prodList[i] = filtered[idx]
-	}
+	numReturn := min(maxResponses, len(prodList))
+	prodList = prodList[:numReturn]
 
 	return &ListRecommendationsResponse{
 		ProductIDs: prodList,
 	}, nil
+}
+
+// sortByPopularity queries the popularity database for checkout counts and
+// returns the filtered products sorted by descending popularity. If the
+// database is unavailable or has no data, it falls back to random ordering.
+func (s *RecommendationService) sortByPopularity(ctx context.Context, filtered []string) []string {
+	if s.popularityDB == nil || len(filtered) == 0 {
+		return randomSample(filtered)
+	}
+
+	rows, err := s.popularityDB.Query(ctx,
+		`SELECT product_id, total_quantity FROM checkout_counts ORDER BY total_quantity DESC`)
+	if err != nil {
+		s.logger.Warn("failed to query popularity database, falling back to random", "error", err)
+		return randomSample(filtered)
+	}
+	defer rows.Close()
+
+	// Build a map of product_id -> rank (lower rank = more popular)
+	popularityRank := make(map[string]int)
+	rank := 0
+	for rows.Next() {
+		var productID string
+		var totalQty int64
+		if err := rows.Scan(&productID, &totalQty); err != nil {
+			s.logger.Warn("failed to scan popularity row", "error", err)
+			continue
+		}
+		popularityRank[productID] = rank
+		rank++
+	}
+	if err := rows.Err(); err != nil {
+		s.logger.Warn("error iterating popularity rows, falling back to random", "error", err)
+		return randomSample(filtered)
+	}
+
+	if len(popularityRank) == 0 {
+		return randomSample(filtered)
+	}
+
+	// Sort filtered products: those with popularity data come first (by rank),
+	// those without come after in their original order.
+	result := make([]string, len(filtered))
+	copy(result, filtered)
+
+	sort.SliceStable(result, func(i, j int) bool {
+		ri, okI := popularityRank[result[i]]
+		rj, okJ := popularityRank[result[j]]
+		if okI && okJ {
+			return ri < rj
+		}
+		if okI {
+			return true
+		}
+		return false
+	})
+
+	return result
+}
+
+// randomSample returns a randomly shuffled copy of the input slice.
+func randomSample(items []string) []string {
+	result := make([]string, len(items))
+	copy(result, items)
+	rand.Shuffle(len(result), func(i, j int) {
+		result[i], result[j] = result[j], result[i]
+	})
+	return result
 }
 
 // fetchProducts calls the product catalog service's GET /products endpoint.

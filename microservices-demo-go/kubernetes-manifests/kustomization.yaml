@@ -23,6 +23,7 @@ resources:
  - frontend.yaml
 # - loadgenerator.yaml # During development, the loadgenerator module inside skaffold.yaml will be used.
  - paymentservice.yaml
+ - popularity-db.yaml
  - productcatalogservice.yaml
  - recommendationservice.yaml
  - shippingservice.yaml

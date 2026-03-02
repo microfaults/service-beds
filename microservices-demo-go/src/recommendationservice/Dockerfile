@@ -41,6 +41,7 @@ WORKDIR /src
 COPY --from=builder /recommendationservice ./server
 
 ENV GOTRACEBACK=single
+ENV POPULARITY_DB_CONN=postgres://popularity:popularity@popularity-db:5432/popularity?sslmode=disable
 EXPOSE 8080
 
 ENTRYPOINT ["/src/server"]

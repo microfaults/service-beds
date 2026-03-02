@@ -61,6 +61,8 @@ spec:
           value: "8080"
         - name: PRODUCT_CATALOG_SERVICE_ADDR
           value: "productcatalogservice:3550"
+        - name: POPULARITY_DB_CONN
+          value: "postgres://popularity:popularity@popularity-db:5432/popularity?sslmode=disable"
         - name: DISABLE_PROFILER
           value: "1"
         resources:

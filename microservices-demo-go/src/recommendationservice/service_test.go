@@ -35,7 +35,7 @@ func TestListRecommendations_FiltersExcludedProducts(t *testing.T) {
 	})
 	defer catalog.Close()
 
-	svc := NewRecommendationService(catalog.Listener.Addr().String())
+	svc := NewRecommendationService(catalog.Listener.Addr().String(), nil, nil)
 
 	resp, err := svc.ListRecommendations(context.Background(), &ListRecommendationsRequest{
 		UserID:     "test-user",
@@ -67,7 +67,7 @@ func TestListRecommendations_MaxFiveResults(t *testing.T) {
 	catalog := newMockCatalog(products)
 	defer catalog.Close()
 
-	svc := NewRecommendationService(catalog.Listener.Addr().String())
+	svc := NewRecommendationService(catalog.Listener.Addr().String(), nil, nil)
 
 	resp, err := svc.ListRecommendations(context.Background(), &ListRecommendationsRequest{
 		UserID: "test-user",
@@ -85,7 +85,7 @@ func TestListRecommendations_EmptyCatalog(t *testing.T) {
 	catalog := newMockCatalog([]Product{})
 	defer catalog.Close()
 
-	svc := NewRecommendationService(catalog.Listener.Addr().String())
+	svc := NewRecommendationService(catalog.Listener.Addr().String(), nil, nil)
 
 	resp, err := svc.ListRecommendations(context.Background(), &ListRecommendationsRequest{
 		UserID: "test-user",
@@ -106,7 +106,7 @@ func TestListRecommendations_AllExcluded(t *testing.T) {
 	})
 	defer catalog.Close()
 
-	svc := NewRecommendationService(catalog.Listener.Addr().String())
+	svc := NewRecommendationService(catalog.Listener.Addr().String(), nil, nil)
 
 	resp, err := svc.ListRecommendations(context.Background(), &ListRecommendationsRequest{
 		UserID:     "test-user",
@@ -123,7 +123,7 @@ func TestListRecommendations_AllExcluded(t *testing.T) {
 
 func TestListRecommendations_CatalogUnavailable(t *testing.T) {
 	// Point at an address that won't respond
-	svc := NewRecommendationService("127.0.0.1:1")
+	svc := NewRecommendationService("127.0.0.1:1", nil, nil)
 
 	_, err := svc.ListRecommendations(context.Background(), &ListRecommendationsRequest{
 		UserID: "test-user",
@@ -141,7 +141,7 @@ func TestHandleListRecommendations_Success(t *testing.T) {
 	})
 	defer catalog.Close()
 
-	svc := NewRecommendationService(catalog.Listener.Addr().String())
+	svc := NewRecommendationService(catalog.Listener.Addr().String(), nil, nil)
 
 	body := `{"user_id":"test","product_ids":["OLJCESPC7Z"]}`
 	req := httptest.NewRequest(http.MethodPost, "/recommendations", strings.NewReader(body))
@@ -173,7 +173,7 @@ func TestHandleListRecommendations_Success(t *testing.T) {
 }
 
 func TestHandleListRecommendations_InvalidJSON(t *testing.T) {
-	svc := NewRecommendationService("unused")
+	svc := NewRecommendationService("unused", nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/recommendations", strings.NewReader("not json"))
 	w := httptest.NewRecorder()

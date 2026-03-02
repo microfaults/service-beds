@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -54,8 +55,27 @@ func main() {
 		logger.Info("Tracing disabled.")
 	}
 
+	// Connect to popularity PostgreSQL database
+	var popularityPool *pgxpool.Pool
+	dbConnStr := os.Getenv("POPULARITY_DB_CONN")
+	if dbConnStr != "" {
+		dbCtx, dbCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer dbCancel()
+
+		pool, err := pgxpool.New(dbCtx, dbConnStr)
+		if err != nil {
+			logger.Warn("failed to connect to popularity database, falling back to random", "error", err)
+		} else {
+			popularityPool = pool
+			defer popularityPool.Close()
+			logger.Info("connected to popularity database")
+		}
+	} else {
+		logger.Info("POPULARITY_DB_CONN not set, using random recommendations")
+	}
+
 	// Create the recommendation service
-	service := NewRecommendationService(catalogAddr)
+	service := NewRecommendationService(catalogAddr, popularityPool, logger)
 
 	// Set up HTTP handlers
 	mux := http.NewServeMux()
@@ -67,12 +87,12 @@ func main() {
 		"POST /recommendations",
 	))
 
-	mux.Handle("GET /health", otelhttp.NewHandler(
+	mux.Handle("GET /_healthz", otelhttp.NewHandler(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("OK"))
 		}),
-		"GET /health",
+		"GET /_healthz",
 	))
 
 	srv := &http.Server{

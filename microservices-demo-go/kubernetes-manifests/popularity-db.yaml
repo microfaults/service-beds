@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: popularity-db
+  labels:
+    app: popularity-db
+spec:
+  selector:
+    matchLabels:
+      app: popularity-db
+  template:
+    metadata:
+      labels:
+        app: popularity-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "popularity"
+        - name: POSTGRES_USER
+          value: "popularity"
+        - name: POSTGRES_PASSWORD
+          value: "popularity"
+        readinessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 5432
+        livenessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 5432
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: postgres-data
+        resources:
+          limits:
+            memory: 256Mi
+            cpu: 250m
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      volumes:
+      - name: postgres-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: popularity-db
+  labels:
+    app: popularity-db
+spec:
+  type: ClusterIP
+  selector:
+    app: popularity-db
+  ports:
+  - name: tcp-postgres
+    port: 5432
+    targetPort: 5432
