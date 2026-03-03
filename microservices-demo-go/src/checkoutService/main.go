@@ -69,7 +69,7 @@ func main() {
 	mustMapEnv(&svc.emailSvcAddr, "EMAIL_SERVICE_ADDR")
 	mustMapEnv(&svc.paymentSvcAddr, "PAYMENT_SERVICE_ADDR")
 
-	// Connect to popularity PostgreSQL database
+	// Connect to item popularity PostgreSQL database
 	dbConnStr := os.Getenv("POPULARITY_DB_CONN")
 	if dbConnStr != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -80,7 +80,6 @@ func main() {
 			log.Warnf("failed to connect to popularity database: %v", err)
 		} else {
 			svc.popularityDB = pool
-			// Create the checkout_counts table if it doesn't exist
 			_, err := pool.Exec(ctx, `
 				CREATE TABLE IF NOT EXISTS checkout_counts (
 					product_id     TEXT PRIMARY KEY,

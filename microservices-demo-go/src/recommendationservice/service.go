@@ -23,7 +23,6 @@ type RecommendationService struct {
 	logger       *slog.Logger
 }
 
-// NewRecommendationService creates a new RecommendationService.
 // The catalogAddr should be the host:port of the product catalog service (e.g. "productcatalogservice:3550").
 // The pool may be nil, in which case the service falls back to random recommendations.
 func NewRecommendationService(catalogAddr string, pool *pgxpool.Pool, logger *slog.Logger) *RecommendationService {
