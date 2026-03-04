@@ -41,34 +41,26 @@ func NewRecommendationService(catalogAddr string, pool *pgxpool.Pool, logger *sl
 
 // ListRecommendations fetches all products from the product catalog service,
 // filters out the ones already in the request, and returns a random sample of up to 5.
-// Equivalent to Python: RecommendationService.ListRecommendations
 func (s *RecommendationService) ListRecommendations(ctx context.Context, req *ListRecommendationsRequest) (*ListRecommendationsResponse, error) {
-	// 1. Fetch list of products from product catalog service
 	products, err := s.fetchProducts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch products: %w", err)
 	}
 
-	// 2. Extract product IDs
-	productIDs := make([]string, len(products))
-	for i, p := range products {
-		productIDs[i] = p.ID
+	productMap := make(map[string]struct{}, len(products))
+	for _, p := range products {
+		productMap[p.ID] = struct{}{}
 	}
 
-	// 3. Filter out products already in the request using a set
-	excludeSet := make(map[string]struct{}, len(req.ProductIDs))
 	for _, id := range req.ProductIDs {
-		excludeSet[id] = struct{}{}
+		delete(productMap, id)
 	}
 
-	var filtered []string
-	for _, id := range productIDs {
-		if _, excluded := excludeSet[id]; !excluded {
-			filtered = append(filtered, id)
-		}
+	filtered := make([]string, 0, len(productMap))
+	for id := range productMap {
+		filtered = append(filtered, id)
 	}
 
-	// 4. Try popularity-based ordering; fall back to random sampling
 	prodList := s.sortByPopularity(ctx, filtered)
 
 	numReturn := min(maxResponses, len(prodList))
@@ -87,6 +79,7 @@ func (s *RecommendationService) sortByPopularity(ctx context.Context, filtered [
 		return randomSample(filtered)
 	}
 
+	// TO DO: add a trace event here to record the query
 	rows, err := s.popularityDB.Query(ctx,
 		`SELECT product_id, total_quantity FROM checkout_counts ORDER BY total_quantity DESC`)
 	if err != nil {

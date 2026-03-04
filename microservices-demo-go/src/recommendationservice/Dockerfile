@@ -20,7 +20,7 @@ ARG TARGETARCH
 WORKDIR /src
 
 # Copy go mod files
-COPY go.mod go.sum* ./
+COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download
