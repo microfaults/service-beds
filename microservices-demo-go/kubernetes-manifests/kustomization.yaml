@@ -28,6 +28,7 @@ resources:
  - shippingservice.yaml
  - otel-collector.yaml
  - prometheus.yaml
+ - kafka.yaml
 # components:
 # - ../kustomize/components/cymbal-branding
 # - ../kustomize/components/google-cloud-operations
