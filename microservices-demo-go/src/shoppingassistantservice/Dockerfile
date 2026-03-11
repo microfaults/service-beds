@@ -37,5 +37,6 @@ COPY --from=builder /shoppingassistantservice /src/shoppingassistantservice
 # See https://golang.org/pkg/runtime/
 ENV GOTRACEBACK=single
 
-EXPOSE 8080
+ENV PORT=8082
+EXPOSE 8082
 ENTRYPOINT ["/src/shoppingassistantservice"]
