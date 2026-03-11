@@ -20,7 +20,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -49,8 +48,7 @@ var (
 var validEnvs = []string{"local", "gcp", "azure", "aws", "onprem", "alibaba"}
 
 func (fe *frontendServer) homeHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("frontend").Start(r.Context(), "homeHandler")
-    defer span.End()
+	ctx := r.Context()
 
 	log := ctx.Value(ctxKeyLog{}).(logrus.FieldLogger)
 	log.WithField("currency", currentCurrency(r)).Info("home")

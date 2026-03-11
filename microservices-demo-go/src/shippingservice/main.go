@@ -24,13 +24,9 @@ import (
 	"syscall"
 	"time"
 
+	"atropos-go"
+
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
 const (
@@ -54,13 +50,16 @@ func init() {
 }
 
 func main() {
-	// Initialize OpenTelemetry tracing.
-	if os.Getenv("DISABLE_TRACING") == "" {
-		log.Info("Tracing enabled.")
-		shutdown := initTracer()
-		defer shutdown()
-	} else {
-		log.Info("Tracing disabled.")
+	ctx := context.Background()
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("shippingservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Warnf("failed to init atropos: %v", err)
+	}
+	if shutdown != nil {
+		defer shutdown(ctx)
 	}
 
 	port := defaultPort
@@ -71,14 +70,13 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Register routes with OpenTelemetry HTTP instrumentation.
-	mux.Handle("POST /shipping/quote", otelhttp.NewHandler(http.HandlerFunc(handleGetQuote), "GetQuote"))
-	mux.Handle("POST /shipping/ship", otelhttp.NewHandler(http.HandlerFunc(handleShipOrder), "ShipOrder"))
-	mux.Handle("GET /_healthz", otelhttp.NewHandler(http.HandlerFunc(handleHealth), "HealthCheck"))
+	mux.HandleFunc("POST /shipping/quote", handleGetQuote)
+	mux.HandleFunc("POST /shipping/ship", handleShipOrder)
+	mux.HandleFunc("GET /_healthz", handleHealth)
 
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: mux,
+		Handler: atropos.IngressMiddleware(mux, "shippingservice"),
 	}
 
 	// Graceful shutdown on SIGINT/SIGTERM.
@@ -97,35 +95,6 @@ func main() {
 	log.Infof("Shipping Service listening on port %s", addr)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("failed to serve: %v", err)
-	}
-}
-
-// initTracer initializes the OpenTelemetry tracer provider with an OTLP gRPC exporter.
-// The exporter endpoint is configured via the OTEL_EXPORTER_OTLP_ENDPOINT env var.
-func initTracer() func() {
-	ctx := context.Background()
-
-	exporter, err := otlptracegrpc.New(ctx)
-	if err != nil {
-		log.Warnf("failed to create OTLP trace exporter: %v", err)
-		return func() {}
-	}
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("shippingservice"),
-		)),
-	)
-	otel.SetTracerProvider(tp)
-
-	return func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := tp.Shutdown(ctx); err != nil {
-			log.Warnf("failed to shutdown tracer provider: %v", err)
-		}
 	}
 }
 
