@@ -17,11 +17,10 @@ import (
 	"checkoutservice/models"
 	"checkoutservice/money"
 
-	telemetry "checkoutservice/telemetry"
+	"atropos-go"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const (
@@ -61,17 +60,15 @@ func main() {
 	port := listenPort
 	ctx := context.Background()
 
-	if os.Getenv("ENABLE_TRACING") == "1" {
-		log.Info("Tracing enabled.")
-		tp, err := telemetry.InitTracing(log, ctx)
-		if err != nil {
-			log.Warnf("warn: failed to initialize tracing: %v", err)
-		}
-		if tp != nil {
-			defer tp.Shutdown(ctx)
-		}
-	} else {
-		log.Info("Tracing disabled.")
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("checkoutservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Warnf("failed to init atropos: %v", err)
+	}
+	if shutdown != nil {
+		defer shutdown(ctx)
 	}
 
 	if os.Getenv("PORT") != "" {
@@ -80,7 +77,7 @@ func main() {
 
 	svc := &checkoutService{
 		httpClient: &http.Client{
-			Transport: otelhttp.NewTransport(http.DefaultTransport),
+			Transport: atropos.EgressTransport(http.DefaultTransport),
 			Timeout:   10 * time.Second,
 		},
 	}
@@ -115,8 +112,7 @@ func main() {
 	mux.HandleFunc("/placeorder", svc.handlePlaceOrder)
 	mux.HandleFunc("/_healthz", svc.handleHealth)
 
-	var handler http.Handler = mux
-	handler = otelhttp.NewHandler(handler, "checkoutservice")
+	handler := atropos.IngressMiddleware(mux, "checkoutservice")
 
 	log.Infof("starting to listen on http://:%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, handler))

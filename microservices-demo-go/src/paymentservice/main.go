@@ -25,12 +25,11 @@ import (
 	"strings"
 	"time"
 
+	"atropos-go"
+
 	"cloud.google.com/go/profiler"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-
-	telemetry "github.com/GoogleCloudPlatform/microservices-demo/src/paymentservice/telemetry"
 )
 
 const (
@@ -71,17 +70,15 @@ func main() {
 	log := newLogger()
 	ctx := context.Background()
 
-	if os.Getenv("ENABLE_TRACING") == "1" {
-		log.Info("Tracing enabled.")
-		tp, err := telemetry.InitTracing(log, ctx)
-		if err != nil {
-			log.Warnf("warn: failed to initialize tracing: %v", err)
-		}
-		if tp != nil {
-			defer tp.Shutdown(ctx)
-		}
-	} else {
-		log.Info("Tracing disabled.")
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("paymentservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Warnf("failed to init atropos: %v", err)
+	}
+	if shutdown != nil {
+		defer shutdown(ctx)
 	}
 
 	if profilerEnabled() {
@@ -102,8 +99,7 @@ func main() {
 	mux.HandleFunc("GET /_healthz", svc.healthz)
 	mux.HandleFunc("POST /charge", svc.charge)
 
-	var handler http.Handler = mux
-	handler = otelhttp.NewHandler(handler, "paymentservice")
+	handler := atropos.IngressMiddleware(mux, "paymentservice")
 
 	addr := ":" + port
 	log.Infof("starting HTTP server on %s", addr)

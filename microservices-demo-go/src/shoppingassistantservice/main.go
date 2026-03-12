@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 
+	"atropos-go"
+
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/shoppingassistantservice/internal/db"
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/shoppingassistantservice/internal/llm"
 )
@@ -27,9 +29,17 @@ func main() {
 
 	ctx := context.Background()
 
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("shoppingassistantservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
+
 	// 2. Initialize Product Store
 	var productStore db.ProductStore
-	var err error
 
 	dbBackend := os.Getenv("DB_BACKEND")
 	if dbBackend == "alloydb" {
@@ -78,8 +88,9 @@ func main() {
 		location:     region,
 	}
 
-	http.HandleFunc("/", h.talkToGemini)
-	http.HandleFunc("/_healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", h.talkToGemini)
+	mux.HandleFunc("/_healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -89,7 +100,7 @@ func main() {
 	}
 
 	log.Printf("Server listening on port %s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, atropos.IngressMiddleware(mux, "shoppingassistantservice")); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
 }
