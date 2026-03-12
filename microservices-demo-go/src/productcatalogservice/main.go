@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"atropos-go"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -37,10 +39,20 @@ func main() {
 		port = p
 	}
 
+	ctx := context.Background()
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("productcatalogservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer shutdown(ctx)
+
 	svc := &productCatalog{}
 	handler := &ProductHandler{service: svc}
 
-	if err := watchProductsFile(context.Background()); err != nil {
+	if err := watchProductsFile(ctx); err != nil {
 		log.Warnf("failed to start file watcher: %v", err)
 	}
 
@@ -54,7 +66,7 @@ func main() {
 	})
 
 	log.Infof("starting http server at :%s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, atropos.IngressMiddleware(mux, "productcatalogservice")); err != nil {
 		log.Fatal(err)
 	}
 }

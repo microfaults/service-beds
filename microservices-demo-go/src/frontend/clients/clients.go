@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"atropos-go"
+
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/frontend/model"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type CurrencyClient interface {
@@ -53,7 +54,7 @@ type httpCurrencyClient struct {
 func NewCurrencyClient(addr string) CurrencyClient {
 	return &httpCurrencyClient{
 		addr:   addr,
-		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
+		client: &http.Client{Transport: atropos.EgressTransport(http.DefaultTransport)},
 	}
 }
 
@@ -101,7 +102,7 @@ type httpProductCatalogClient struct {
 func NewProductCatalogClient(addr string) ProductCatalogClient {
 	return &httpProductCatalogClient{
 		addr:   addr,
-		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
+		client: &http.Client{Transport: atropos.EgressTransport(http.DefaultTransport)},
 	}
 }
 
@@ -150,7 +151,7 @@ type httpCartClient struct {
 func NewCartClient(addr string) CartClient {
 	return &httpCartClient{
 		addr:   addr,
-		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
+		client: &http.Client{Transport: atropos.EgressTransport(http.DefaultTransport)},
 	}
 }
 
@@ -214,7 +215,7 @@ type httpRecommendationClient struct {
 func NewRecommendationClient(addr string, pc ProductCatalogClient) RecommendationClient {
 	return &httpRecommendationClient{
 		addr:   addr,
-		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
+		client: &http.Client{Transport: atropos.EgressTransport(http.DefaultTransport)},
 		pc:     pc,
 	}
 }
@@ -266,7 +267,7 @@ type httpShippingClient struct {
 func NewShippingClient(addr string) ShippingClient {
 	return &httpShippingClient{
 		addr:   addr,
-		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
+		client: &http.Client{Transport: atropos.EgressTransport(http.DefaultTransport)},
 	}
 }
 
@@ -305,7 +306,7 @@ type httpCheckoutClient struct {
 func NewCheckoutClient(addr string) CheckoutClient {
 	return &httpCheckoutClient{
 		addr:   addr,
-		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
+		client: &http.Client{Transport: atropos.EgressTransport(http.DefaultTransport)},
 	}
 }
 
@@ -334,7 +335,7 @@ type httpAdClient struct {
 func NewAdClient(addr string) AdClient {
 	return &httpAdClient{
 		addr:   addr,
-		client: &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
+		client: &http.Client{Transport: atropos.EgressTransport(http.DefaultTransport)},
 	}
 }
 

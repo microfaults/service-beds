@@ -26,11 +26,10 @@ import (
 	"strings"
 	"time"
 
+	"atropos-go"
+
 	"cloud.google.com/go/profiler"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-
-	telemetry "github.com/GoogleCloudPlatform/microservices-demo/src/currencyservice/telemetry"
 )
 
 const (
@@ -67,17 +66,15 @@ func main() {
 	log := newLogger()
 	ctx := context.Background()
 
-	if os.Getenv("ENABLE_TRACING") == "1" {
-		log.Info("Tracing enabled.")
-		tp, err := telemetry.InitTracing(log, ctx)
-		if err != nil {
-			log.Warnf("warn: failed to initialize tracing: %v", err)
-		}
-		if tp != nil {
-			defer tp.Shutdown(ctx)
-		}
-	} else {
-		log.Info("Tracing disabled.")
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("currencyservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Warnf("failed to init atropos: %v", err)
+	}
+	if shutdown != nil {
+		defer shutdown(ctx)
 	}
 
 	if profilerEnabled() {
@@ -103,8 +100,7 @@ func main() {
 	mux.HandleFunc("GET /currencies", svc.getSupportedCurrencies)
 	mux.HandleFunc("POST /convert", svc.convert)
 
-	var handler http.Handler = mux
-	handler = otelhttp.NewHandler(handler, "currencyservice")
+	handler := atropos.IngressMiddleware(mux, "currencyservice")
 
 	addr := ":" + port
 

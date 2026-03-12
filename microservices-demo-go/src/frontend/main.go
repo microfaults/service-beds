@@ -7,12 +7,11 @@ import (
 	"os"
 	"time"
 
+	"atropos-go"
+
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/frontend/clients"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-
-	telemetry "github.com/GoogleCloudPlatform/microservices-demo-go/src/frontend/telemetry"
 )
 
 const (
@@ -69,17 +68,15 @@ func main() {
 
 	baseUrl = os.Getenv("BASE_URL")
 
-	if os.Getenv("ENABLE_TRACING") == "1" {
-		log.Info("Tracing enabled.")
-		tp, err := telemetry.InitTracing(log, ctx)
-		if err != nil {
-			log.Warnf("warn: failed to initialize tracing: %v", err)
-		}
-		if tp != nil {
-			defer tp.Shutdown(ctx)
-		}
-	} else {
-		log.Info("Tracing disabled.")
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("frontend"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Warnf("failed to init atropos: %v", err)
+	}
+	if shutdown != nil {
+		defer shutdown(ctx)
 	}
 	srvPort := port
 	if os.Getenv("PORT") != "" {
@@ -138,9 +135,9 @@ func main() {
 	r.HandleFunc(baseUrl+"/bot", svc.chatBotHandler).Methods(http.MethodPost)
 
 	var handler http.Handler = r
-	handler = &logHandler{log: log, next: handler}     // add logging
-	handler = ensureSessionID(handler)                 // add session ID
-	handler = otelhttp.NewHandler(handler, "frontend") // add OTel tracing
+	handler = &logHandler{log: log, next: handler} // add logging
+	handler = ensureSessionID(handler)             // add session ID
+	handler = atropos.IngressMiddleware(handler, "frontend")
 
 	log.Infof("starting server on %s:%s", addr, srvPort)
 	log.Fatal(http.ListenAndServe(addr+":"+srvPort, handler))

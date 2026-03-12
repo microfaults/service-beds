@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"atropos-go"
 )
 
 func main() {
@@ -18,9 +20,22 @@ func main() {
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	ctx := context.Background()
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("adservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		logger.Error("failed to init atropos", "error", err)
+		os.Exit(1)
+	}
+	defer shutdown(ctx)
+
 	service := NewService()
 
-	http.HandleFunc("/ads", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ads", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -45,14 +60,14 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/_healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/_healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: nil, // Use DefaultServeMux
+		Handler: atropos.IngressMiddleware(mux, "adservice"),
 	}
 
 	// Channel to listen for OS signals
