@@ -6,7 +6,7 @@ toolchain go1.25.6
 
 require (
 	cloud.google.com/go/profiler v0.4.3
-	github.com/microfaults/atropos-go v0.0.3
+	github.com/microfaults/atropos-go v0.0.4
 	github.com/sirupsen/logrus v1.9.4
 )
 

@@ -161,12 +161,15 @@ github.com/jackc/pgx/v5/pgxpool
 ## explicit; go 1.19
 github.com/jackc/puddle/v2
 github.com/jackc/puddle/v2/internal/genstack
-# github.com/microfaults/atropos-go v0.0.3
+# github.com/microfaults/atropos-go v0.0.4
 ## explicit; go 1.25.5
 github.com/microfaults/atropos-go
 github.com/microfaults/atropos-go/internal/evaluator
 github.com/microfaults/atropos-go/internal/fault
 github.com/microfaults/atropos-go/internal/fault/inline
+github.com/microfaults/atropos-go/internal/fault/resource
+github.com/microfaults/atropos-go/internal/fault/resource/cpu
+github.com/microfaults/atropos-go/internal/fault/resource/memory
 github.com/microfaults/atropos-go/internal/interceptor
 github.com/microfaults/atropos-go/internal/trace
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822

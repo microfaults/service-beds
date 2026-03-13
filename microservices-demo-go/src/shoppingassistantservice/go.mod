@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/alloydbconn v1.17.3
 	cloud.google.com/go/secretmanager v1.16.0
 	github.com/jackc/pgx/v5 v5.8.0
-	github.com/microfaults/atropos-go v0.0.3
+	github.com/microfaults/atropos-go v0.0.4
 	github.com/pgvector/pgvector-go v0.3.0
 	google.golang.org/genai v1.46.0
 )

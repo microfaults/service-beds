@@ -2,7 +2,7 @@ module recommendationservice
 
 go 1.25.5
 
-require github.com/microfaults/atropos-go v0.0.3
+require github.com/microfaults/atropos-go v0.0.4
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
