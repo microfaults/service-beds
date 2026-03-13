@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/microfaults/atropos-go v0.0.1
+	github.com/microfaults/atropos-go v0.0.2
 	github.com/sirupsen/logrus v1.9.4
 	github.com/twmb/franz-go v1.20.7
 )

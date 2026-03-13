@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/jackc/pgx/v5 v5.8.0
-	github.com/microfaults/atropos-go v0.0.1
+	github.com/microfaults/atropos-go v0.0.2
 	github.com/redis/go-redis/v9 v9.17.3
 )
 

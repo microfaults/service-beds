@@ -57,7 +57,7 @@ github.com/grpc-ecosystem/grpc-gateway/v2/utilities
 ## explicit; go 1.18
 github.com/leodido/go-urn
 github.com/leodido/go-urn/scim/schema
-# github.com/microfaults/atropos-go v0.0.1
+# github.com/microfaults/atropos-go v0.0.2
 ## explicit; go 1.25.5
 github.com/microfaults/atropos-go
 github.com/microfaults/atropos-go/internal/evaluator
