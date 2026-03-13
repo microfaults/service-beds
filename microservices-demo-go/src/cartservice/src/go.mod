@@ -3,12 +3,10 @@ module github.com/GoogleCloudPlatform/microservices-demo/src/cartservice
 go 1.25.5
 
 require (
-	atropos-go v0.0.0
 	github.com/jackc/pgx/v5 v5.8.0
+	github.com/microfaults/atropos-go v0.0.1
 	github.com/redis/go-redis/v9 v9.17.3
 )
-
-replace atropos-go => ../../../../../atropos-go
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

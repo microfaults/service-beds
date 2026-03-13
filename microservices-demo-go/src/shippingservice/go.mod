@@ -5,11 +5,9 @@ go 1.25.5
 toolchain go1.25.6
 
 require (
-	atropos-go v0.0.0
+	github.com/microfaults/atropos-go v0.0.1
 	github.com/sirupsen/logrus v1.9.4
 )
-
-replace atropos-go => ../../../../atropos-go
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

@@ -24,7 +24,7 @@ import (
 	"syscall"
 	"time"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 
 	"github.com/sirupsen/logrus"
 )

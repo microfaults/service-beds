@@ -3,13 +3,11 @@ module github.com/GoogleCloudPlatform/microservices-demo/src/paymentservice
 go 1.25.6
 
 require (
-	atropos-go v0.0.0
 	cloud.google.com/go/profiler v0.4.3
 	github.com/google/uuid v1.6.0
+	github.com/microfaults/atropos-go v0.0.1
 	github.com/sirupsen/logrus v1.9.4
 )
-
-replace atropos-go => ../../../../atropos-go
 
 require (
 	cloud.google.com/go v0.123.0 // indirect

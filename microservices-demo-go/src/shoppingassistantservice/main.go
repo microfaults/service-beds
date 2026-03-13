@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/shoppingassistantservice/internal/db"
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/shoppingassistantservice/internal/llm"

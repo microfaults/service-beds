@@ -2,7 +2,7 @@ module github.com/microservices-demo-go/adservice
 
 go 1.25.5
 
-require atropos-go v0.0.0
+require github.com/microfaults/atropos-go v0.0.1
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -37,5 +37,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace atropos-go => ../../../../atropos-go

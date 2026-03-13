@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 )
 
 // Logger for email server

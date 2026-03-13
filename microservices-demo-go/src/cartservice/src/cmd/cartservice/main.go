@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/cartstore"
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/model"

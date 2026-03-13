@@ -17,7 +17,7 @@ import (
 	"checkoutservice/models"
 	"checkoutservice/money"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"

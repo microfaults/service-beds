@@ -17,15 +17,15 @@ ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
 
+
 # restore dependencies
 COPY go.mod go.sum ./
-RUN go mod download
 
 COPY . .
 
 # Skaffold passes in debug-oriented compiler flags
 ARG SKAFFOLD_GO_GCFLAGS
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /paymentservice .
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -mod=vendor -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /paymentservice .
 
 FROM gcr.io/distroless/static
 

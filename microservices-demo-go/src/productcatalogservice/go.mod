@@ -3,15 +3,13 @@ module github.com/microservices-demo-go/productcatalogservice
 go 1.25.5
 
 require (
-	atropos-go v0.0.0
 	cloud.google.com/go/alloydbconn v1.17.2
 	cloud.google.com/go/secretmanager v1.16.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/jackc/pgx/v5 v5.8.0
+	github.com/microfaults/atropos-go v0.0.1
 	github.com/sirupsen/logrus v1.9.4
 )
-
-replace atropos-go => ../../../../atropos-go
 
 require (
 	cloud.google.com/go v0.121.6 // indirect

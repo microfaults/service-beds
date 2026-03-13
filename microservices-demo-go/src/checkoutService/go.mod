@@ -3,13 +3,11 @@ module checkoutservice
 go 1.25.5
 
 require (
-	atropos-go v0.0.0
 	github.com/google/uuid v1.6.0
+	github.com/microfaults/atropos-go v0.0.1
 	github.com/sirupsen/logrus v1.9.4
 	github.com/twmb/franz-go v1.20.7
 )
-
-replace atropos-go => ../../../../atropos-go
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
