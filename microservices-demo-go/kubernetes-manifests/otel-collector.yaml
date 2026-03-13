@@ -10,6 +10,10 @@ data:
           grpc:
           http:
     exporters:
+      otlp/tempo:
+        endpoint: "tempo:4317"
+        tls:
+          insecure: true
       prometheus:
         endpoint: "0.0.0.0:8889"
     connectors:
@@ -18,7 +22,7 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          exporters: [spanmetrics]
+          exporters: [spanmetrics, otlp/tempo]
         metrics:
           receivers: [spanmetrics]
           exporters: [prometheus]
