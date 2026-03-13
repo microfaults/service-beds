@@ -3,10 +3,10 @@ kind: ConfigMap
 metadata:
   name: grafana-dashboards
 data:
-  request-overview.json: |
+  atropos-overview.json: |
     {
-      "uid": "request-overview",
-      "title": "Request Overview",
+      "uid": "atropos-overview",
+      "title": "Atropos Service Overview",
       "version": 1,
       "editable": true,
       "time": {
@@ -34,10 +34,17 @@ data:
       },
       "panels": [
         {
+          "id": 100,
+          "title": "Ingress",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false
+        },
+        {
           "id": 1,
-          "title": "Request Rate",
+          "title": "Ingress Request Rate",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
           "targets": [
             {
               "expr": "sum(rate(http_server_requests_total{service=~\"$service\"}[5m])) by (service)",
@@ -47,6 +54,7 @@ data:
           ],
           "fieldConfig": {
             "defaults": {
+              "unit": "reqps",
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 1,
@@ -60,9 +68,9 @@ data:
         },
         {
           "id": 2,
-          "title": "Average Latency",
+          "title": "Ingress Average Latency",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
           "targets": [
             {
               "expr": "sum(rate(http_server_request_duration_seconds_sum{service=~\"$service\"}[5m])) by (service) / sum(rate(http_server_request_duration_seconds_count{service=~\"$service\"}[5m])) by (service)",
@@ -83,45 +91,12 @@ data:
             },
             "overrides": []
           }
-        }
-      ],
-      "schemaVersion": 39
-    }
-  latency-percentiles.json: |
-    {
-      "uid": "latency-percentiles",
-      "title": "Latency Percentiles",
-      "version": 1,
-      "editable": true,
-      "time": {
-        "from": "now-15m",
-        "to": "now"
-      },
-      "refresh": "10s",
-      "templating": {
-        "list": [
-          {
-            "name": "service",
-            "type": "query",
-            "datasource": "Prometheus",
-            "query": "label_values(http_server_requests_total, service)",
-            "includeAll": true,
-            "multi": true,
-            "current": {
-              "selected": true,
-              "text": "All",
-              "value": "$__all"
-            },
-            "refresh": 2
-          }
-        ]
-      },
-      "panels": [
+        },
         {
-          "id": 1,
-          "title": "p95 Latency",
+          "id": 3,
+          "title": "Ingress p95 Latency",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
           "targets": [
             {
               "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[5m])) by (le, service))",
@@ -144,10 +119,10 @@ data:
           }
         },
         {
-          "id": 2,
-          "title": "p99 Latency",
+          "id": 4,
+          "title": "Ingress p99 Latency",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
           "targets": [
             {
               "expr": "histogram_quantile(0.99, sum(rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[5m])) by (le, service))",
@@ -168,48 +143,48 @@ data:
             },
             "overrides": []
           }
-        }
-      ],
-      "schemaVersion": 39
-    }
-  egress-latency.json: |
-    {
-      "uid": "egress-latency",
-      "title": "Egress Latency",
-      "version": 1,
-      "editable": true,
-      "time": {
-        "from": "now-15m",
-        "to": "now"
-      },
-      "refresh": "10s",
-      "templating": {
-        "list": [
-          {
-            "name": "target",
-            "type": "query",
-            "datasource": "Prometheus",
-            "query": "label_values(http_client_request_duration_seconds, target)",
-            "includeAll": true,
-            "multi": true,
-            "current": {
-              "selected": true,
-              "text": "All",
-              "value": "$__all"
-            },
-            "refresh": 2
-          }
-        ]
-      },
-      "panels": [
+        },
         {
-          "id": 1,
-          "title": "p95 Egress Latency",
+          "id": 101,
+          "title": "Egress",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+          "collapsed": false
+        },
+        {
+          "id": 5,
+          "title": "Egress Request Rate",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
           "targets": [
             {
-              "expr": "histogram_quantile(0.95, sum(rate(http_client_request_duration_seconds_bucket{target=~\"$target\"}[5m])) by (le, target))",
+              "expr": "sum(rate(http_client_requests_total[5m])) by (target)",
+              "legendFormat": "{{target}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 6,
+          "title": "Egress Average Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_client_request_duration_seconds_sum[5m])) by (target) / sum(rate(http_client_request_duration_seconds_count[5m])) by (target)",
               "legendFormat": "{{target}}",
               "refId": "A"
             }
@@ -229,19 +204,20 @@ data:
           }
         },
         {
-          "id": 2,
-          "title": "Egress Request Rate",
+          "id": 7,
+          "title": "Egress p95 Latency",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
           "targets": [
             {
-              "expr": "sum(rate(http_client_requests_total{target=~\"$target\"}[5m])) by (target)",
+              "expr": "histogram_quantile(0.95, sum(rate(http_client_request_duration_seconds_bucket[5m])) by (le, target))",
               "legendFormat": "{{target}}",
               "refId": "A"
             }
           ],
           "fieldConfig": {
             "defaults": {
+              "unit": "s",
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 1,
@@ -252,45 +228,45 @@ data:
             },
             "overrides": []
           }
-        }
-      ],
-      "schemaVersion": 39
-    }
-  resource-usage.json: |
-    {
-      "uid": "resource-usage",
-      "title": "Resource Usage",
-      "version": 1,
-      "editable": true,
-      "time": {
-        "from": "now-15m",
-        "to": "now"
-      },
-      "refresh": "10s",
-      "templating": {
-        "list": [
-          {
-            "name": "service",
-            "type": "query",
-            "datasource": "Prometheus",
-            "query": "label_values(http_server_requests_total, service)",
-            "includeAll": true,
-            "multi": true,
-            "current": {
-              "selected": true,
-              "text": "All",
-              "value": "$__all"
-            },
-            "refresh": 2
-          }
-        ]
-      },
-      "panels": [
+        },
         {
-          "id": 1,
+          "id": 8,
+          "title": "Egress p99 Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(http_client_request_duration_seconds_bucket[5m])) by (le, target))",
+              "legendFormat": "{{target}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 102,
+          "title": "Resources",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 34 },
+          "collapsed": false
+        },
+        {
+          "id": 9,
           "title": "CPU Usage",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
           "targets": [
             {
               "expr": "rate(process_cpu_seconds_total{job=~\"$service\"}[5m])",
@@ -312,10 +288,10 @@ data:
           }
         },
         {
-          "id": 2,
+          "id": 10,
           "title": "Memory Usage",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
           "targets": [
             {
               "expr": "process_resident_memory_bytes{job=~\"$service\"}",
