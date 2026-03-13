@@ -65,6 +65,9 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: atropos.IngressMiddleware(mux, "adservice"),

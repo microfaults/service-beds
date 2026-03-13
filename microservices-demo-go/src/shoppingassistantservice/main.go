@@ -94,6 +94,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

@@ -112,6 +112,9 @@ func main() {
 	mux.HandleFunc("/placeorder", svc.handlePlaceOrder)
 	mux.HandleFunc("/_healthz", svc.handleHealth)
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	handler := atropos.IngressMiddleware(mux, "checkoutservice")
 
 	log.Infof("starting to listen on http://:%s", port)

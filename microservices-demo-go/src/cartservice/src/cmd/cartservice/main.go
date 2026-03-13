@@ -152,6 +152,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	log.Printf("HTTP server listening on :%s", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), atropos.IngressMiddleware(mux, "cartservice")); err != nil {
 		log.Fatalf("failed to serve HTTP: %v", err)

@@ -28,6 +28,8 @@ resources:
  - shippingservice.yaml
  - otel-collector.yaml
  - prometheus.yaml
+ - grafana.yaml
+ - grafana-dashboards.yaml
  - kafka.yaml
 # components:
 # - ../kustomize/components/cymbal-branding

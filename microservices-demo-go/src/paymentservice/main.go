@@ -99,6 +99,9 @@ func main() {
 	mux.HandleFunc("GET /_healthz", svc.healthz)
 	mux.HandleFunc("POST /charge", svc.charge)
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	handler := atropos.IngressMiddleware(mux, "paymentservice")
 
 	addr := ":" + port

@@ -134,6 +134,9 @@ func main() {
 	r.HandleFunc(baseUrl+"/product-meta/{ids}", svc.getProductByID).Methods(http.MethodGet)
 	r.HandleFunc(baseUrl+"/bot", svc.chatBotHandler).Methods(http.MethodPost)
 
+	r.Handle(baseUrl+"/metrics", atropos.MetricsHandler()).Methods(http.MethodGet)
+	r.PathPrefix(baseUrl + "/admin/fault").Handler(atropos.FaultAdminHandler())
+
 	var handler http.Handler = r
 	handler = &logHandler{log: log, next: handler} // add logging
 	handler = ensureSessionID(handler)             // add session ID

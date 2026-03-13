@@ -74,6 +74,9 @@ func main() {
 	mux.HandleFunc("POST /shipping/ship", handleShipOrder)
 	mux.HandleFunc("GET /_healthz", handleHealth)
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: atropos.IngressMiddleware(mux, "shippingservice"),

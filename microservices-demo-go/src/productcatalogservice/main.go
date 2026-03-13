@@ -65,6 +65,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	log.Infof("starting http server at :%s", port)
 	if err := http.ListenAndServe(":"+port, atropos.IngressMiddleware(mux, "productcatalogservice")); err != nil {
 		log.Fatal(err)

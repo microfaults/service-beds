@@ -100,6 +100,9 @@ func main() {
 	mux.HandleFunc("GET /currencies", svc.getSupportedCurrencies)
 	mux.HandleFunc("POST /convert", svc.convert)
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	handler := atropos.IngressMiddleware(mux, "currencyservice")
 
 	addr := ":" + port

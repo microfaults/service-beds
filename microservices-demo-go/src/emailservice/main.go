@@ -100,6 +100,9 @@ func start(dummyMode bool) {
 	mux.HandleFunc("/send-order-confirmation", handleSendOrderConfirmation)
 	mux.HandleFunc("/_healthz", handleHealth)
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	// Get port from environment (equivalent to Python: os.environ.get('PORT', "8080"))
 	port := os.Getenv("PORT")
 	if port == "" {
