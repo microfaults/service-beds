@@ -25,7 +25,7 @@ github.com/google/uuid
 github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule
 github.com/grpc-ecosystem/grpc-gateway/v2/runtime
 github.com/grpc-ecosystem/grpc-gateway/v2/utilities
-# github.com/microfaults/atropos-go v0.0.4
+# github.com/microfaults/atropos-go v0.0.5
 ## explicit; go 1.25.5
 github.com/microfaults/atropos-go
 github.com/microfaults/atropos-go/internal/evaluator

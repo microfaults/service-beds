@@ -37,7 +37,7 @@ github.com/klauspost/compress/internal/snapref
 github.com/klauspost/compress/s2
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
-# github.com/microfaults/atropos-go v0.0.4
+# github.com/microfaults/atropos-go v0.0.5
 ## explicit; go 1.25.5
 github.com/microfaults/atropos-go
 github.com/microfaults/atropos-go/internal/evaluator
