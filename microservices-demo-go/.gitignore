@@ -1,1 +1,17 @@
 .atropos-go
+
+# Go vendor directories — run `go mod vendor` locally before building
+vendor/
+
+# Compiled binaries
+adservice
+cartservice
+checkoutservice
+currencyservice
+emailservice
+frontend
+paymentservice
+productcatalogservice
+recommendationservice
+shippingservice
+shoppingassistantservice
