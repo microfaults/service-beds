@@ -104,7 +104,7 @@ data:
           "title": "Ingress Request Rate",
           "description": "Requests per second by service. Hover for average latency.",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
           "targets": [
             {
               "expr": "sum(rate(http_server_requests_total{service=~\"$service\"}[5m])) by (service)",
@@ -154,7 +154,7 @@ data:
           "id": 4,
           "title": "Ingress p50 Latency",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
           "targets": [
             {
               "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[5m])) by (le, service))",
@@ -180,7 +180,7 @@ data:
           "id": 5,
           "title": "Ingress p99 Latency",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
           "targets": [
             {
               "expr": "histogram_quantile(0.99, sum(rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[5m])) by (le, service))",
@@ -206,7 +206,7 @@ data:
           "id": 6,
           "title": "Ingress Error Rate by Status",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
           "targets": [
             {
               "expr": "sum(rate(http_server_requests_total{service=~\"$service\", status_code=~\"4..\"}[5m])) by (service, status_code)",
@@ -247,7 +247,7 @@ data:
           "title": "Egress Request Rate",
           "description": "Outbound requests per second by target. Hover for average latency.",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 27 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 27 },
           "targets": [
             {
               "expr": "sum(rate(http_client_requests_total{job=~\"$service\"}[5m])) by (target) > 0",
@@ -297,7 +297,7 @@ data:
           "id": 8,
           "title": "Egress p50 Latency",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 27 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 27 },
           "targets": [
             {
               "expr": "histogram_quantile(0.50, sum(rate(http_client_request_duration_seconds_bucket{job=~\"$service\"}[5m])) by (le, target))",
@@ -323,7 +323,7 @@ data:
           "id": 9,
           "title": "Egress p99 Latency",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 27 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
           "targets": [
             {
               "expr": "histogram_quantile(0.99, sum(rate(http_client_request_duration_seconds_bucket{job=~\"$service\"}[5m])) by (le, target))",
@@ -349,7 +349,7 @@ data:
           "id": 10,
           "title": "Egress Error Rate by Status",
           "type": "timeseries",
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 35 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
           "targets": [
             {
               "expr": "sum(rate(http_client_requests_total{job=~\"$service\", status_code=~\"4..\"}[5m])) by (target, status_code)",
