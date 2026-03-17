@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 )
 
 func main() {
@@ -64,6 +64,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
 
 	srv := &http.Server{
 		Addr:    ":" + port,

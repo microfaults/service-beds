@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 )
 
 type Product struct {
@@ -137,6 +137,9 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/recommendations", svc.ListRecommendations)
 	mux.HandleFunc("/_healthz", svc.Check)
+
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
 
 	log.Printf("recommendationservice listening on port %s", port)
 	if err := http.ListenAndServe(":"+port, atropos.IngressMiddleware(mux, "recommendationservice")); err != nil {

@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 
 	"cloud.google.com/go/profiler"
 	"github.com/sirupsen/logrus"
@@ -99,6 +99,9 @@ func main() {
 	mux.HandleFunc("GET /_healthz", svc.healthz)
 	mux.HandleFunc("GET /currencies", svc.getSupportedCurrencies)
 	mux.HandleFunc("POST /convert", svc.convert)
+
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
 
 	handler := atropos.IngressMiddleware(mux, "currencyservice")
 
