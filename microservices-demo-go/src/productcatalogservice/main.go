@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 
 	"github.com/sirupsen/logrus"
 )
@@ -64,6 +64,9 @@ func main() {
 	mux.HandleFunc("GET /_healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
 
 	log.Infof("starting http server at :%s", port)
 	if err := http.ListenAndServe(":"+port, atropos.IngressMiddleware(mux, "productcatalogservice")); err != nil {

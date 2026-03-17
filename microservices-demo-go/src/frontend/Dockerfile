@@ -1,19 +1,12 @@
 FROM golang:1.25.6-alpine AS builder
 
 WORKDIR /src
-COPY go.mod ./
-# COPY go.sum ./ # creating go.mod manually, go.sum might not exist yet if tidy failed
 
-# Download dependencies
-# specific to the new module
-# RUN go mod download 
-# Since I couldn't run go mod tidy, I might need to run it in the container?
-# Yes, inside the container go is available.
-# So I should copy everything and run go mod tidy then build.
-
+COPY go.mod go.sum ./
+COPY vendor/ vendor/
 COPY . .
-RUN go mod tidy
-RUN go build -o /go/bin/frontend .
+
+RUN go build -mod=vendor -o /go/bin/frontend .
 
 FROM alpine:3.21.2
 RUN apk add --no-cache ca-certificates busybox-extras net-tools bind-tools

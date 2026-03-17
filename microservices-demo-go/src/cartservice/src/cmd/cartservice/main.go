@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/cartstore"
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/model"
@@ -151,6 +151,9 @@ func main() {
 	mux.HandleFunc("GET /_healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
 
 	log.Printf("HTTP server listening on :%s", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), atropos.IngressMiddleware(mux, "cartservice")); err != nil {

@@ -24,7 +24,7 @@ import (
 	"syscall"
 	"time"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 
 	"github.com/sirupsen/logrus"
 )
@@ -73,6 +73,9 @@ func main() {
 	mux.HandleFunc("POST /shipping/quote", handleGetQuote)
 	mux.HandleFunc("POST /shipping/ship", handleShipOrder)
 	mux.HandleFunc("GET /_healthz", handleHealth)
+
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
 
 	srv := &http.Server{
 		Addr:    addr,

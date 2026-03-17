@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"atropos-go"
+	"github.com/microfaults/atropos-go"
 
 	"cloud.google.com/go/profiler"
 	"github.com/google/uuid"
@@ -98,6 +98,9 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /_healthz", svc.healthz)
 	mux.HandleFunc("POST /charge", svc.charge)
+
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
 
 	handler := atropos.IngressMiddleware(mux, "paymentservice")
 
