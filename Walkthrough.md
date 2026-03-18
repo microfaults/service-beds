@@ -18,6 +18,10 @@
 
 ```bash
 cd service-beds/microservices-demo-go
+
+# based on your OS run the following command to vendor the dependencies .sh for (linux/mac) and .bat for (windows)
+.\run_vendor.bat or ./run_vendor.sh
+
 skaffold run
 ```
 
