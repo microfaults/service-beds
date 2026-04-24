@@ -1,52 +1,36 @@
-# ---------------------------------------------------------------------------
-# Mirror to GitLab — Push merged branches to UCSC GitLab
-#
-# Triggers on push to main/develop (i.e., when a PR is merged on GitHub).
-# Pushes the exact same commit objects to the corresponding branch on GitLab.
-#
-# Required GitHub Secrets:
-#   GITLAB_PUSH_TOKEN — GitLab personal access token with write_repository scope
-# ---------------------------------------------------------------------------
-
 name: Mirror to GitLab
 
 on:
   push:
     branches: [main, develop]
+  workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
+  # If you had a 'test' job here, it would run every time.
+  
   mirror:
     runs-on: ubuntu-latest
-    # Logic to prevent infinite loops and redundant runs:
-    # 1. Skip if the actor is your specific mirror bot
-    # 2. Skip if the commit message implies a back-sync from GitLab
+    # This 'if' ensures the mirror ONLY runs if the commit is "fresh" 
+    # and not one that just arrived from a GitLab sync.
     if: |
       github.actor != 'gitlab-mirror-bot' && 
-      !contains(github.event.head_commit.message, '[skip ci]') &&
       !contains(github.event.head_commit.message, 'Gitlab github sync')
-
+    
     steps:
       - name: Checkout full history
         uses: actions/checkout@v4
         with:
-          # fetch-depth: 0 is mandatory for hash parity; it fetches all tags and history
           fetch-depth: 0
 
       - name: Push to GitLab
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_PUSH_TOKEN }}
         run: |
-          # Add the GitLab remote using the OAuth2 token for authentication
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@git.ucsc.edu/microfaults/service-beds.git"
-          
-          # Get the current branch name (main or develop)
           BRANCH_NAME="${{ github.ref_name }}"
           
-          echo "Mirroring $BRANCH_NAME to UCSC GitLab..."
-
-          # --force ensures that rebases/force-pushes on GitHub are reflected exactly on GitLab
-          # -o ci.skip is a GitLab-specific push option that prevents GitLab CI from triggering 
-          # WITHOUT changing the commit hash (unlike adding [skip ci] to a commit message).
-          git push gitlab "refs/heads/$BRANCH_NAME:refs/heads/$BRANCH_NAME" --force -o ci.skip
+          # We do NOT use -o ci.skip so GitLab CI (AI Review) runs.
+          # The GitLab mirror job's 'rules' will prevent it from pushing back.
+          git push gitlab "refs/heads/$BRANCH_NAME:refs/heads/$BRANCH_NAME" --force
           
-          echo "✅ Successfully mirrored $BRANCH_NAME. Hashes remain identical."
+          echo "✅ Mirrored to GitLab. AI Review will trigger."
