@@ -2,15 +2,22 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
+	"checkoutservice/kafka"
 	"checkoutservice/models"
 	"checkoutservice/money"
+
+	"github.com/microfaults/atropos-go"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -45,17 +52,33 @@ type checkoutService struct {
 	emailSvcAddr          string
 	paymentSvcAddr        string
 	httpClient            *http.Client
+	kafkaProducer         *kafka.Producer
+	kafkaEnabled          bool
 }
 
 func main() {
 	port := listenPort
+	ctx := context.Background()
+
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("checkoutservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Warnf("failed to init atropos: %v", err)
+	}
+	if shutdown != nil {
+		defer shutdown(ctx)
+	}
+
 	if os.Getenv("PORT") != "" {
 		port = os.Getenv("PORT")
 	}
 
 	svc := &checkoutService{
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Transport: atropos.EgressTransport(http.DefaultTransport),
+			Timeout:   10 * time.Second,
 		},
 	}
 
@@ -66,16 +89,36 @@ func main() {
 	mustMapEnv(&svc.emailSvcAddr, "EMAIL_SERVICE_ADDR")
 	mustMapEnv(&svc.paymentSvcAddr, "PAYMENT_SERVICE_ADDR")
 
+	// Initialize Kafka producer (opt-in via ENABLE_KAFKA=1).
+	if os.Getenv("ENABLE_KAFKA") == "1" {
+		var kafkaAddr string
+		mustMapEnv(&kafkaAddr, "KAFKA_BROKER_ADDR")
+		brokers := strings.Split(kafkaAddr, ",")
+		p, err := kafka.NewProducer(brokers, log)
+		if err != nil {
+			log.Warnf("failed to create Kafka producer: %v (continuing without Kafka)", err)
+		} else {
+			svc.kafkaProducer = p
+			svc.kafkaEnabled = true
+			defer p.Close()
+		}
+	} else {
+		log.Info("ENABLE_KAFKA not set, Kafka publishing disabled")
+	}
+
 	log.Infof("service config: %+v", svc)
 
-	// Set up HTTP routes
-	http.HandleFunc("/placeorder", svc.handlePlaceOrder)
-	http.HandleFunc("/_healthz", svc.handleHealth)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/placeorder", svc.handlePlaceOrder)
+	mux.HandleFunc("/_healthz", svc.handleHealth)
+
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
+	handler := atropos.IngressMiddleware(mux, "checkoutservice")
 
 	log.Infof("starting to listen on http://:%s", port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil); err != nil {
-		log.Fatal(err)
-	}
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
 
 func mustMapEnv(target *string, envKey string) {
@@ -109,6 +152,16 @@ func (cs *checkoutService) handlePlaceOrder(w http.ResponseWriter, r *http.Reque
 	defer r.Body.Close()
 
 	log.Infof("[PlaceOrder] user_id=%q user_currency=%q", req.UserID, req.UserCurrency)
+
+	// Publish checkout request to Kafka (fire-and-forget).
+	if cs.kafkaEnabled {
+		payload, err := json.Marshal(req)
+		if err != nil {
+			log.Warnf("failed to marshal checkout request for Kafka: %v", err)
+		} else if err := cs.kafkaProducer.Publish("checkout-requests", req.UserID, payload); err != nil {
+			log.Warnf("failed to publish checkout request to Kafka: %v", err)
+		}
+	}
 
 	orderID, err := uuid.NewUUID()
 	if err != nil {
@@ -253,22 +306,44 @@ func (cs *checkoutService) emptyUserCart(userID string) error {
 
 func (cs *checkoutService) prepOrderItems(items []*models.CartItem, userCurrency string) ([]*models.OrderItem, error) {
 	out := make([]*models.OrderItem, len(items))
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errs []error
+	)
 
 	for i, item := range items {
-		product, err := cs.getProduct(item.GetProductId())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get product #%q", item.GetProductId())
-		}
+		wg.Add(1)
+		go func(idx int, cartItem *models.CartItem) {
+			defer wg.Done()
 
-		price, err := cs.convertCurrency(product.GetPriceUsd(), userCurrency)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert price of %q to %s", item.GetProductId(), userCurrency)
-		}
+			product, err := cs.getProduct(cartItem.GetProductId())
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("failed to get product %q: %w", cartItem.GetProductId(), err))
+				mu.Unlock()
+				return
+			}
 
-		out[i] = &models.OrderItem{
-			Item: item,
-			Cost: price,
-		}
+			price, err := cs.convertCurrency(product.GetPriceUsd(), userCurrency)
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("failed to convert price of %q to %s: %w", cartItem.GetProductId(), userCurrency, err))
+				mu.Unlock()
+				return
+			}
+
+			out[idx] = &models.OrderItem{
+				Item: cartItem,
+				Cost: price,
+			}
+		}(i, item)
+	}
+
+	wg.Wait()
+
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
 	}
 
 	return out, nil

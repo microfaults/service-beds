@@ -7,14 +7,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/microfaults/atropos-go"
+
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/frontend/clients"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 const (
@@ -55,6 +52,7 @@ type frontendServer struct {
 }
 
 func main() {
+
 	ctx := context.Background()
 	log := logrus.New()
 	log.Level = logrus.DebugLevel
@@ -68,19 +66,18 @@ func main() {
 	}
 	log.Out = os.Stdout
 
-	otel.SetTextMapPropagator(
-		propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{}, propagation.Baggage{}))
-
 	baseUrl = os.Getenv("BASE_URL")
 
-	if os.Getenv("ENABLE_TRACING") == "1" {
-		log.Info("Tracing enabled.")
-		initTracing(log, ctx)
-	} else {
-		log.Info("Tracing disabled.")
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("frontend"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Warnf("failed to init atropos: %v", err)
 	}
-
+	if shutdown != nil {
+		defer shutdown(ctx)
+	}
 	srvPort := port
 	if os.Getenv("PORT") != "" {
 		srvPort = os.Getenv("PORT")
@@ -137,40 +134,16 @@ func main() {
 	r.HandleFunc(baseUrl+"/product-meta/{ids}", svc.getProductByID).Methods(http.MethodGet)
 	r.HandleFunc(baseUrl+"/bot", svc.chatBotHandler).Methods(http.MethodPost)
 
+	r.Handle(baseUrl+"/metrics", atropos.MetricsHandler()).Methods(http.MethodGet)
+	r.PathPrefix(baseUrl + "/admin/fault").Handler(atropos.FaultAdminHandler())
+
 	var handler http.Handler = r
-	handler = &logHandler{log: log, next: handler}     // add logging
-	handler = ensureSessionID(handler)                 // add session ID
-	handler = otelhttp.NewHandler(handler, "frontend") // add OTel tracing
+	handler = &logHandler{log: log, next: handler} // add logging
+	handler = ensureSessionID(handler)             // add session ID
+	handler = atropos.IngressMiddleware(handler, "frontend")
 
 	log.Infof("starting server on %s:%s", addr, srvPort)
 	log.Fatal(http.ListenAndServe(addr+":"+srvPort, handler))
-}
-
-func initTracing(log logrus.FieldLogger, ctx context.Context) (*sdktrace.TracerProvider, error) {
-	collectorAddr := os.Getenv("COLLECTOR_SERVICE_ADDR")
-	if collectorAddr == "" {
-		log.Info("COLLECTOR_SERVICE_ADDR not set, tracing exporter not initialized")
-		return nil, nil
-	}
-
-	// Create exporter for OTLP
-	// Insecure for demo purposes
-	exporter, err := otlptracegrpc.New(
-		ctx,
-		otlptracegrpc.WithEndpoint(collectorAddr),
-		otlptracegrpc.WithInsecure(),
-	)
-	if err != nil {
-		log.Warnf("warn: Failed to create trace exporter: %v", err)
-		return nil, err
-	}
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	otel.SetTracerProvider(tp)
-
-	return tp, nil
 }
 
 func mustMapEnv(target *string, envKey string) {

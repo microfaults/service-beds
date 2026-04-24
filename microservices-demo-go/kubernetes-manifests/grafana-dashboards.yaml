@@ -1,0 +1,382 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+data:
+  atropos-overview.json: |
+    {
+      "uid": "atropos-overview",
+      "title": "Atropos Service Overview",
+      "version": 2,
+      "editable": true,
+      "time": {
+        "from": "now-15m",
+        "to": "now"
+      },
+      "refresh": "10s",
+      "templating": {
+        "list": [
+          {
+            "name": "service",
+            "type": "query",
+            "datasource": "Prometheus",
+            "query": "label_values(http_server_requests_total, service)",
+            "includeAll": true,
+            "multi": true,
+            "current": {
+              "selected": true,
+              "text": "All",
+              "value": "$__all"
+            },
+            "refresh": 2
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 100,
+          "title": "System Resources",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false
+        },
+        {
+          "id": 1,
+          "title": "CPU Usage",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+          "targets": [
+            {
+              "expr": "rate(process_cpu_seconds_total{job=~\"$service\"}[5m])",
+              "legendFormat": "{{job}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 2,
+          "title": "Memory Usage",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+          "targets": [
+            {
+              "expr": "process_resident_memory_bytes{job=~\"$service\"}",
+              "legendFormat": "{{job}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          }
+        },
+
+        {
+          "id": 101,
+          "title": "Ingress",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+          "collapsed": false
+        },
+        {
+          "id": 3,
+          "title": "Ingress Request Rate",
+          "description": "Requests per second by service. Hover for average latency.",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_server_requests_total{service=~\"$service\"}[5m])) by (service)",
+              "legendFormat": "{{service}} req/s",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(http_server_request_duration_seconds_sum{service=~\"$service\"}[5m])) by (service) / sum(rate(http_server_request_duration_seconds_count{service=~\"$service\"}[5m])) by (service)",
+              "legendFormat": "{{service}} avg latency",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byRegexp", "options": ".*avg latency" },
+                "properties": [
+                  { "id": "unit", "value": "s" },
+                  { "id": "custom.drawStyle", "value": "line" },
+                  { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+                  { "id": "custom.fillOpacity", "value": 0 },
+                  { "id": "custom.axisPlacement", "value": "right" },
+                  { "id": "custom.axisLabel", "value": "avg latency (s)" },
+                  { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } }
+                ]
+              },
+              {
+                "matcher": { "id": "byRegexp", "options": ".*req/s" },
+                "properties": [
+                  { "id": "unit", "value": "reqps" },
+                  { "id": "custom.axisLabel", "value": "req/s" }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 4,
+          "title": "Ingress p50 Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[5m])) by (le, service))",
+              "legendFormat": "{{service}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 5,
+          "title": "Ingress p99 Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[5m])) by (le, service))",
+              "legendFormat": "{{service}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 6,
+          "title": "Ingress Error Rate by Status",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_server_requests_total{service=~\"$service\", status_code=~\"4..\"}[5m])) by (service, status_code)",
+              "legendFormat": "{{service}} {{status_code}}",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(http_server_requests_total{service=~\"$service\", status_code=~\"5..\"}[5m])) by (service, status_code)",
+              "legendFormat": "{{service}} {{status_code}}",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "bars",
+                "lineWidth": 1,
+                "fillOpacity": 50,
+                "pointSize": 5,
+                "showPoints": "never",
+                "stacking": { "mode": "normal" }
+              }
+            },
+            "overrides": []
+          }
+        },
+
+        {
+          "id": 102,
+          "title": "Egress",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+          "collapsed": false
+        },
+        {
+          "id": 7,
+          "title": "Egress Request Rate",
+          "description": "Outbound requests per second by target. Hover for average latency.",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 27 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_client_requests_total{job=~\"$service\"}[5m])) by (target) > 0",
+              "legendFormat": "{{target}} req/s",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(http_client_request_duration_seconds_sum{job=~\"$service\"}[5m])) by (target) / sum(rate(http_client_request_duration_seconds_count{job=~\"$service\"}[5m])) by (target)",
+              "legendFormat": "{{target}} avg latency",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byRegexp", "options": ".*avg latency" },
+                "properties": [
+                  { "id": "unit", "value": "s" },
+                  { "id": "custom.drawStyle", "value": "line" },
+                  { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+                  { "id": "custom.fillOpacity", "value": 0 },
+                  { "id": "custom.axisPlacement", "value": "right" },
+                  { "id": "custom.axisLabel", "value": "avg latency (s)" },
+                  { "id": "custom.hideFrom", "value": { "legend": true, "tooltip": false, "viz": false } }
+                ]
+              },
+              {
+                "matcher": { "id": "byRegexp", "options": ".*req/s" },
+                "properties": [
+                  { "id": "unit", "value": "reqps" },
+                  { "id": "custom.axisLabel", "value": "req/s" }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 8,
+          "title": "Egress p50 Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 27 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(http_client_request_duration_seconds_bucket{job=~\"$service\"}[5m])) by (le, target))",
+              "legendFormat": "{{target}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 9,
+          "title": "Egress p99 Latency",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(http_client_request_duration_seconds_bucket{job=~\"$service\"}[5m])) by (le, target))",
+              "legendFormat": "{{target}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 10,
+          "title": "Egress Error Rate by Status",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
+          "targets": [
+            {
+              "expr": "sum(rate(http_client_requests_total{job=~\"$service\", status_code=~\"4..\"}[5m])) by (target, status_code)",
+              "legendFormat": "{{target}} {{status_code}}",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(http_client_requests_total{job=~\"$service\", status_code=~\"5..\"}[5m])) by (target, status_code)",
+              "legendFormat": "{{target}} {{status_code}}",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "bars",
+                "lineWidth": 1,
+                "fillOpacity": 50,
+                "pointSize": 5,
+                "showPoints": "never",
+                "stacking": { "mode": "normal" }
+              }
+            },
+            "overrides": []
+          }
+        }
+      ],
+      "schemaVersion": 39
+    }

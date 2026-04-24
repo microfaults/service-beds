@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/microfaults/atropos-go"
+
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/cartstore"
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/model"
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/service"
@@ -26,6 +28,16 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+
+	ctx := context.Background()
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("cartservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
 
 	var store cartstore.CartStore
 	redisAddr := os.Getenv("REDIS_ADDR")
@@ -140,8 +152,11 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
 	log.Printf("HTTP server listening on :%s", port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), mux); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), atropos.IngressMiddleware(mux, "cartservice")); err != nil {
 		log.Fatalf("failed to serve HTTP: %v", err)
 	}
 }

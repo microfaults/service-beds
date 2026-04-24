@@ -25,16 +25,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/microfaults/atropos-go"
+
 	"cloud.google.com/go/profiler"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -75,18 +70,15 @@ func main() {
 	log := newLogger()
 	ctx := context.Background()
 
-	// Propagate trace context even if tracing is disabled.
-	otel.SetTextMapPropagator(
-		propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{}, propagation.Baggage{}))
-
-	if os.Getenv("ENABLE_TRACING") == "1" {
-		log.Info("Tracing enabled.")
-		if err := initTracing(ctx); err != nil {
-			log.Warnf("warn: failed to initialize tracing: %v", err)
-		}
-	} else {
-		log.Info("Tracing disabled.")
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("paymentservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Warnf("failed to init atropos: %v", err)
+	}
+	if shutdown != nil {
+		defer shutdown(ctx)
 	}
 
 	if profilerEnabled() {
@@ -107,8 +99,10 @@ func main() {
 	mux.HandleFunc("GET /_healthz", svc.healthz)
 	mux.HandleFunc("POST /charge", svc.charge)
 
-	var handler http.Handler = mux
-	handler = otelhttp.NewHandler(handler, "paymentservice")
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+
+	handler := atropos.IngressMiddleware(mux, "paymentservice")
 
 	addr := ":" + port
 	log.Infof("starting HTTP server on %s", addr)
@@ -154,34 +148,6 @@ func initProfiling(log logrus.FieldLogger, serviceName, version string) {
 		time.Sleep(d)
 	}
 	log.Warn("warning: could not initialize profiler after retrying, giving up")
-}
-
-func initTracing(ctx context.Context) error {
-	collector := os.Getenv("COLLECTOR_SERVICE_ADDR")
-	if collector == "" {
-		return fmt.Errorf("COLLECTOR_SERVICE_ADDR not set")
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-
-	conn, err := grpc.NewClient(collector,
-		grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return err
-	}
-
-	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
-	if err != nil {
-		return err
-	}
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-	)
-	otel.SetTracerProvider(tp)
-	return nil
 }
 
 func (s *service) healthz(w http.ResponseWriter, _ *http.Request) {

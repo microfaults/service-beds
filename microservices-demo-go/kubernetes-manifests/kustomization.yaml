@@ -26,6 +26,12 @@ resources:
  - productcatalogservice.yaml
  - recommendationservice.yaml
  - shippingservice.yaml
+ - otel-collector.yaml
+ - tempo.yaml
+ - prometheus.yaml
+ - grafana.yaml
+ - grafana-dashboards.yaml
+ - kafka.yaml
 # components:
 # - ../kustomize/components/cymbal-branding
 # - ../kustomize/components/google-cloud-operations

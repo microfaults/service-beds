@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/microfaults/atropos-go"
 )
 
 type Product struct {
@@ -108,21 +111,38 @@ func main() {
 		port = "8080"
 	}
 
+	ctx := context.Background()
+	shutdown, err := atropos.Init(ctx,
+		atropos.WithServiceName("recommendationservice"),
+		atropos.WithServiceVersion("0.1.0"),
+	)
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
+
 	catalogAddr := os.Getenv("PRODUCT_CATALOG_SERVICE_ADDR")
 	if catalogAddr == "" {
 		catalogAddr = "productcatalogservice:3550"
 	}
 
 	svc := &RecommendationService{
-		Client:      &http.Client{Timeout: 10 * time.Second},
+		Client: &http.Client{
+			Transport: atropos.EgressTransport(http.DefaultTransport),
+			Timeout:   10 * time.Second,
+		},
 		CatalogAddr: catalogAddr,
 	}
 
-	http.HandleFunc("/recommendations", svc.ListRecommendations)
-	http.HandleFunc("/_healthz", svc.Check)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/recommendations", svc.ListRecommendations)
+	mux.HandleFunc("/_healthz", svc.Check)
+
+	mux.Handle("GET /metrics", atropos.MetricsHandler())
+	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
 
 	log.Printf("recommendationservice listening on port %s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, atropos.IngressMiddleware(mux, "recommendationservice")); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }

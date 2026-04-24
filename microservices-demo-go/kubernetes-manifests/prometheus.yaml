@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-conf
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 10s
+    scrape_configs:
+      - job_name: 'otel-collector'
+        static_configs:
+          - targets: ['otel-collector:8889']
+      - job_name: 'adservice'
+        static_configs:
+          - targets: ['adservice:9555']
+      - job_name: 'cartservice'
+        static_configs:
+          - targets: ['cartservice:7070']
+      - job_name: 'checkoutservice'
+        static_configs:
+          - targets: ['checkoutservice:5050']
+      - job_name: 'currencyservice'
+        static_configs:
+          - targets: ['currencyservice:7000']
+      - job_name: 'emailservice'
+        static_configs:
+          - targets: ['emailservice:8080']
+      - job_name: 'frontend'
+        static_configs:
+          - targets: ['frontend:80']
+      - job_name: 'paymentservice'
+        static_configs:
+          - targets: ['paymentservice:50051']
+      - job_name: 'productcatalogservice'
+        static_configs:
+          - targets: ['productcatalogservice:3550']
+      - job_name: 'recommendationservice'
+        static_configs:
+          - targets: ['recommendationservice:8080']
+      - job_name: 'shippingservice'
+        static_configs:
+          - targets: ['shippingservice:50051']
+      - job_name: 'shoppingassistantservice'
+        static_configs:
+          - targets: ['shoppingassistantservice:80']
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.53.0
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+          volumeMounts:
+            - name: prometheus-config-vol
+              mountPath: /etc/prometheus
+          ports:
+            - containerPort: 9090
+      volumes:
+        - name: prometheus-config-vol
+          configMap:
+            name: prometheus-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9090
+      targetPort: 9090
+  selector:
+    app: prometheus

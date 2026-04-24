@@ -48,19 +48,21 @@ var (
 var validEnvs = []string{"local", "gcp", "azure", "aws", "onprem", "alibaba"}
 
 func (fe *frontendServer) homeHandler(w http.ResponseWriter, r *http.Request) {
-	log := r.Context().Value(ctxKeyLog{}).(logrus.FieldLogger)
+	ctx := r.Context()
+
+	log := ctx.Value(ctxKeyLog{}).(logrus.FieldLogger)
 	log.WithField("currency", currentCurrency(r)).Info("home")
-	currencies, err := fe.getCurrencies(r.Context())
+	currencies, err := fe.getCurrencies(ctx)
 	if err != nil {
 		renderHTTPError(log, r, w, errors.Wrap(err, "could not retrieve currencies"), http.StatusInternalServerError)
 		return
 	}
-	products, err := fe.getProducts(r.Context())
+	products, err := fe.getProducts(ctx)
 	if err != nil {
 		renderHTTPError(log, r, w, errors.Wrap(err, "could not retrieve products"), http.StatusInternalServerError)
 		return
 	}
-	cart, err := fe.getCart(r.Context(), sessionID(r))
+	cart, err := fe.getCart(ctx, sessionID(r))
 	if err != nil {
 		renderHTTPError(log, r, w, errors.Wrap(err, "could not retrieve cart"), http.StatusInternalServerError)
 		return
@@ -72,7 +74,7 @@ func (fe *frontendServer) homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	ps := make([]productView, len(products))
 	for i, p := range products {
-		price, err := fe.convertCurrency(r.Context(), p.PriceUsd, currentCurrency(r))
+		price, err := fe.convertCurrency(ctx, p.PriceUsd, currentCurrency(r))
 		if err != nil {
 			renderHTTPError(log, r, w, errors.Wrapf(err, "failed to do currency conversion for product %s", p.Id), http.StatusInternalServerError)
 			return
@@ -104,10 +106,11 @@ func (fe *frontendServer) homeHandler(w http.ResponseWriter, r *http.Request) {
 		"products":      ps,
 		"cart_size":     cartSize(cart),
 		"banner_color":  os.Getenv("BANNER_COLOR"), // illustrates canary deployments
-		"ad":            fe.chooseAd(r.Context(), []string{}, log),
+		"ad":            fe.chooseAd(ctx, []string{}, log),
 	})); err != nil {
 		log.Error(err)
 	}
+
 }
 
 func (plat *platformDetails) setPlatformDetails(env string) {

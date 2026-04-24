@@ -3,15 +3,15 @@ ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
 
+
 # restore dependencies
 COPY go.mod go.sum ./
-RUN go mod download
 
 COPY . .
 
 # Skaffold passes in debug-oriented compiler flags
 ARG SKAFFOLD_GO_GCFLAGS
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /checkoutservice .
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -mod=vendor -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /checkoutservice .
 
 FROM alpine:3.22
 
@@ -31,6 +31,7 @@ ENV CART_SERVICE_ADDR=5053
 ENV CURRENCY_SERVICE_ADDR=5054
 ENV EMAIL_SERVICE_ADDR=5055
 ENV PAYMENT_SERVICE_ADDR=5056
+ENV KAFKA_BROKER_ADDR=""
 
 EXPOSE 5050
 ENTRYPOINT ["/src/checkoutservice"]
