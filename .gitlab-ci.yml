@@ -28,6 +28,7 @@ variables:
   TO_COMMIT: "HEAD"
   REVIEW_HOURS: "24"
   MAX_DIFF_CHARS: "120000"
+  SKIP_MIRROR: "false"
   GIT_DEPTH: "0"   # full clone so git log --since works reliably
 
 stages:
@@ -80,21 +81,18 @@ mirror-to-github:
   variables:
     GIT_DEPTH: "0"
   rules:
-    # 1. Only main or develop
-    # 2. Manual run capability
-    # 3. CRITICAL: Skip if message contains our sync tag to prevent infinite loops
-    - if: '($CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop") && $CI_COMMIT_MESSAGE =~ /Gitlab github sync/i'
+    # 1. Hard block if this push originated from the GitHub mirror script
+    - if: '$SKIP_MIRROR == "true"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"'
-      when: on_success
-    - when: manual
+    # 2. Manual only: Only appears in the UI on main/develop
+    - if: '($CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop") && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "push")'
+      when: manual
       allow_failure: true
-
   script:
     - apk add --no-cache git
     - git remote add github "https://x-access-token:${GITHUB_PUSH_TOKEN}@github.com/microfaults/service-beds.git"
     
-    # We do NOT use -o ci.skip here so that GitHub Actions CAN run (e.g. for CI/Tests)
-    # But we include a tag in the push if needed, or rely on the GitHub job's 'if' logic.
-    - git push github "HEAD:refs/heads/${CI_COMMIT_BRANCH}" --force
-    - echo "✅ Mirrored to GitHub. CI on GitHub will trigger, but its mirror job should skip."
+    # We push with a push option to tell GitHub Actions to skip its mirror if needed
+    # (Though the GitHub 'actor' check is usually sufficient, this is extra safety)
+    - git push github "HEAD:refs/heads/${CI_COMMIT_BRANCH}" --force -o "source=gitlab"
+    - echo "✅ Manual mirror to GitHub complete."
