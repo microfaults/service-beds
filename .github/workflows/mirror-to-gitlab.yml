@@ -1,3 +1,13 @@
+# ---------------------------------------------------------------------------
+# Mirror to GitLab — Push merged branches to UCSC GitLab
+#
+# Triggers on push to main/develop (i.e., when a PR is merged on GitHub).
+# Pushes the exact same commit objects to the corresponding branch on GitLab.
+#
+# Required GitHub Secrets:
+#   GITLAB_PUSH_TOKEN — GitLab personal access token with write_repository scope
+# ---------------------------------------------------------------------------
+
 name: Mirror to GitLab
 
 on:
@@ -18,12 +28,14 @@ jobs:
       - name: Checkout full history
         uses: actions/checkout@v4
         with:
+          # fetch-depth: 0 is mandatory for hash parity; it fetches all tags and history
           fetch-depth: 0
 
       - name: Push to GitLab
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_PUSH_TOKEN }}
         run: |
+          # Add the GitLab remote using the OAuth2 token for authentication
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@git.ucsc.edu/microfaults/service-beds.git"
           BRANCH_NAME="${{ github.ref_name }}"
           
