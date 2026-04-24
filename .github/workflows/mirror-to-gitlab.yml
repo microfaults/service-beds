@@ -10,12 +10,10 @@ jobs:
   
   mirror:
     runs-on: ubuntu-latest
-    # This 'if' ensures the mirror ONLY runs if the commit is "fresh" 
-    # and not one that just arrived from a GitLab sync.
-    if: |
-      github.actor != 'gitlab-mirror-bot' && 
-      !contains(github.event.head_commit.message, 'Gitlab github sync')
-    
+    # This 'if' prevents the loop by checking the pusher.
+    # It skips if the push came from the GitLab token (you) via CI.
+    if: github.actor != 'github-actions[bot]'
+
     steps:
       - name: Checkout full history
         uses: actions/checkout@v4
@@ -29,8 +27,10 @@ jobs:
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@git.ucsc.edu/microfaults/service-beds.git"
           BRANCH_NAME="${{ github.ref_name }}"
           
-          # We do NOT use -o ci.skip so GitLab CI (AI Review) runs.
-          # The GitLab mirror job's 'rules' will prevent it from pushing back.
-          git push gitlab "refs/heads/$BRANCH_NAME:refs/heads/$BRANCH_NAME" --force
+          # CRITICAL: We pass a push option that GitLab interprets as a CI variable.
+          # This ensures AI Review RUNS, but the GitLab mirror job STOPS.
+          git push gitlab "refs/heads/$BRANCH_NAME:refs/heads/$BRANCH_NAME" \
+            --force \
+            -o "ci.variable=SKIP_MIRROR=true"
           
-          echo "✅ Mirrored to GitLab. AI Review will trigger."
+          echo "✅ Mirrored to GitLab. AI Review will trigger, Mirror job will be skipped."
