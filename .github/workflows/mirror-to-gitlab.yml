@@ -11,8 +11,6 @@
 name: Mirror to GitLab
 
 on:
-  push:
-    branches: [main, develop]
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
@@ -22,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     # This 'if' prevents the loop by checking the pusher.
     # It skips if the push came from the GitLab token (you) via CI.
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && (github.ref_name == 'main' || github.ref_name == 'develop')
 
     steps:
       - name: Checkout full history
