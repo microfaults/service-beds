@@ -11,19 +11,16 @@
 name: Mirror to GitLab
 
 on:
-  push:
-    branches: [main, develop]
+  workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
+  # If you had a 'test' job here, it would run every time.
+  
   mirror:
     runs-on: ubuntu-latest
-    # Logic to prevent infinite loops and redundant runs:
-    # 1. Skip if the actor is your specific mirror bot
-    # 2. Skip if the commit message implies a back-sync from GitLab
-    if: |
-      github.actor != 'gitlab-mirror-bot' && 
-      !contains(github.event.head_commit.message, '[skip ci]') &&
-      !contains(github.event.head_commit.message, 'Gitlab github sync')
+    # This 'if' prevents the loop by checking the pusher.
+    # It skips if the push came from the GitLab token (you) via CI.
+    if: github.actor != 'github-actions[bot]' && (github.ref_name == 'main' || github.ref_name == 'develop')
 
     steps:
       - name: Checkout full history
@@ -38,15 +35,12 @@ jobs:
         run: |
           # Add the GitLab remote using the OAuth2 token for authentication
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@git.ucsc.edu/microfaults/service-beds.git"
-          
-          # Get the current branch name (main or develop)
           BRANCH_NAME="${{ github.ref_name }}"
           
-          echo "Mirroring $BRANCH_NAME to UCSC GitLab..."
-
-          # --force ensures that rebases/force-pushes on GitHub are reflected exactly on GitLab
-          # -o ci.skip is a GitLab-specific push option that prevents GitLab CI from triggering 
-          # WITHOUT changing the commit hash (unlike adding [skip ci] to a commit message).
-          git push gitlab "refs/heads/$BRANCH_NAME:refs/heads/$BRANCH_NAME" --force -o ci.skip
+          # CRITICAL: We pass a push option that GitLab interprets as a CI variable.
+          # This ensures AI Review RUNS, but the GitLab mirror job STOPS.
+          git push gitlab "refs/heads/$BRANCH_NAME:refs/heads/$BRANCH_NAME" \
+            --force \
+            -o "ci.variable=SKIP_MIRROR=true"
           
-          echo "✅ Successfully mirrored $BRANCH_NAME. Hashes remain identical."
+          echo "✅ Mirrored to GitLab. AI Review will trigger, Mirror job will be skipped."
