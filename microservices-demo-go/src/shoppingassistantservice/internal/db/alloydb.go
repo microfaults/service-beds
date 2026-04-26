@@ -101,8 +101,4 @@ func (s *AlloyDBStore) Close() {
 	}
 }
 
-// PostgresStore is a generic Postgres store that can be used for local DBs too.
-// It is essentially the same as AlloyDBStore but doesn't imply AlloyDB specific connection logic (which is handled by the pool anyway).
-// distinct usage: AlloyDBStore might have specific retry logic or something in future.
-// For now, they are identical.
 // We can just use one struct `PGVectorStore`.
