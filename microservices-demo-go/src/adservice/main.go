@@ -32,6 +32,25 @@ func main() {
 	}
 	defer shutdown(ctx)
 
+	eval := atropos.NewStaticEvaluator()
+	cb := atropos.NewCacheBox(atropos.CacheBoxConfig{
+		Store: atropos.NewCacheBoxMemStore(1000),
+	})
+	atropos.Configure(
+		atropos.WithEvaluator(eval),
+		atropos.WithCacheBoxCoordinator(cb),
+	)
+
+	mc, err := atropos.ConnectManteion(ctx, "adservice",
+		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
+	)
+	if err != nil {
+		logger.Warn("manteion connection failed, running offline", "error", err)
+	}
+	if mc != nil {
+		defer mc.Close(ctx)
+	}
+
 	service := NewService()
 
 	mux := http.NewServeMux()
@@ -67,6 +86,9 @@ func main() {
 
 	mux.Handle("GET /metrics", atropos.MetricsHandler())
 	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
+	mux.Handle("/admin/cachebox", atropos.CacheBoxAdminHandler(cb))
+	mux.Handle("/atropos/health", atropos.HealthHandler())
 
 	srv := &http.Server{
 		Addr:    ":" + port,
