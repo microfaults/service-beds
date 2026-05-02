@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 )
 
 func main() {

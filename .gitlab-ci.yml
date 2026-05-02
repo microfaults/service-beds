@@ -41,7 +41,7 @@ go-verify:
   image: golang:1.25.6-alpine
   variables:
     GOFLAGS: ""
-    GOPRIVATE: "github.com/microfaults/*"
+    GOPRIVATE: "git.ucsc.edu/microfaults/*"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

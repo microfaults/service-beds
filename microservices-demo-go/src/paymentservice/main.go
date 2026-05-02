@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 
 	"cloud.google.com/go/profiler"
 	"github.com/google/uuid"

@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/frontend/clients"
 	"github.com/gorilla/mux"

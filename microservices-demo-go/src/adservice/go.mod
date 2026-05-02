@@ -2,7 +2,7 @@ module github.com/microservices-demo-go/adservice
 
 go 1.25.5
 
-require github.com/microfaults/atropos-go v0.0.6
+require git.ucsc.edu/microfaults/atropos-go v0.0.6
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

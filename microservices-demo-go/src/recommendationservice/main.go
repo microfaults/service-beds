@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 )
 
 type Product struct {

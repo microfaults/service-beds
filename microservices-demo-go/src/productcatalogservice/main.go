@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 
 	"github.com/sirupsen/logrus"
 )
