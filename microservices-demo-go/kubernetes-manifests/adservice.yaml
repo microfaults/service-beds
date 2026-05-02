@@ -49,10 +49,12 @@ spec:
         env:
         - name: PORT
           value: "9555"
+        - name: COLLECTOR_SERVICE_ADDR
+          value: "otel-collector:4317"
         resources:
           requests:
-            cpu: 200m
-            memory: 180Mi
+            cpu: 300m
+            memory: 300Mi
           limits:
             cpu: 300m
             memory: 300Mi

@@ -70,10 +70,12 @@ spec:
             value: "cartservice:7070"
           - name: KAFKA_BROKER_ADDR
             value: "kafka:9092"
+          - name: COLLECTOR_SERVICE_ADDR
+            value: "otel-collector:4317"
           resources:
             requests:
-              cpu: 100m
-              memory: 64Mi
+              cpu: 200m
+              memory: 128Mi
             limits:
               cpu: 200m
               memory: 128Mi
