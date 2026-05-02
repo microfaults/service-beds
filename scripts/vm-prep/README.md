@@ -1,60 +1,73 @@
 # VM Experiment Preparation
 
-Scripts to minimize confounds when running faults-lab experiments on a k3s VM.
+Scripts to minimize confounds when running faults-lab cache-box isolation
+experiments on a k3s VM. Grounded in the confound list from `VISION.md`
+and the interference hierarchy (L0–L4) from `atropos-go/VISION.md`.
 
 ## Quick start
 
 ```bash
-# One-time setup (run as root on the experiment VM):
+# One-time host tuning (run as root on the experiment VM):
 sudo ./prepare-vm.sh
 
 # Before each experiment run:
 ./verify-readiness.sh
+
+# Between experiment phases (baseline → 1a → 1b → 2a → …):
+../reset-online-boutique-state.sh
 ```
 
 ## prepare-vm.sh
 
-Must be run as root. Applies kernel and scheduler tuning that persists across
-reboots where possible:
+Must be run as root. Applies kernel tuning that persists across reboots:
 
-1. **CPU governor -> performance** -- pins all cores to max frequency so
-   latency measurements aren't skewed by DVFS. Gracefully skips if cpufreq
-   isn't exposed (common in VMs).
-2. **Swap off** -- calls `swapoff -a` and comments out swap entries in
-   `/etc/fstab` so the OOM-killer fires instead of silently paging.
-3. **vm.swappiness=0** -- set via sysctl and persisted in `/etc/sysctl.conf`.
-4. **THP -> madvise** -- disables transparent huge pages for all allocations
-   except those that explicitly opt in. Skips if the sysfs knob isn't present.
-5. **NTP sync check** -- verifies the clock is synchronized (tries chronyc
-   first, falls back to timedatectl). Does not fix drift, only warns.
+1. **CPU governor → performance** — pins all cores to max frequency so
+   latency measurements aren't skewed by DVFS ramp-up. Skips gracefully
+   if cpufreq isn't exposed (common in VMs).
+2. **Swap off** — `swapoff -a` + comments out fstab entries. OOM-kill is
+   preferable to silent paging during experiments.
+3. **vm.swappiness=0** — sysctl live + persisted.
+4. **THP → madvise** — avoids compaction stalls from transparent huge
+   pages. Skips if the sysfs knob isn't present.
+5. **NTP sync check** — verifies the clock is synchronized (tries chronyc,
+   falls back to timedatectl). Clock skew corrupts trace span ordering.
 
 ## verify-readiness.sh
 
-Non-destructive checks to run before each experiment. Reports [PASS], [WARN],
-or [FAIL] for each item:
+Non-destructive pre-experiment checks. Reports `[PASS]`, `[WARN]`, or
+`[FAIL]` for each item. Exits 1 on any FAIL.
 
-- CPU governor = performance
-- Swap disabled
-- vm.swappiness = 0
-- THP = madvise
-- NTP synchronized
-- All k8s pods Running or Completed
-- COLLECTOR_SERVICE_ADDR set on all service deployments
-- No deployments with imagePullPolicy=Always
+**Host checks:** CPU governor, swap, swappiness, THP, NTP.
 
-Exits 0 if all checks pass or warn. Exits 1 if any check fails.
+**Experiment infrastructure checks:**
+- All pods Running/Completed
+- COLLECTOR_SERVICE_ADDR set on all service deployments (traces silently
+  drop without it — the #1 confound we hit)
+- Guaranteed QoS on all service pods (requests == limits, so the scheduler
+  doesn't throttle or over-commit)
+- No HPA active (replica count must be fixed across phases)
+- AlwaysSample tracing (ratio sampling invalidates latency distributions)
 
-## Confounds NOT addressed by these scripts
+## Known confounds (from VISION.md)
 
-The following require manual attention:
+These are the documented confounds for cache-box isolation experiments.
+The scripts address what they can; the rest requires experimental design.
 
-- **Node topology / loadgen separation** -- the load generator should not
-  compete for CPU with the services under test. Pin it to a separate node or
-  use taints/tolerations.
-- **Background workloads** -- ensure no unrelated pods or cron jobs are
-  running during the experiment window.
-- **Network** -- VM-to-VM network jitter, bandwidth limits, and MTU settings
-  are outside the scope of these scripts.
-- **Sampling config** -- trace/metric sampling rates must be set consistently
-  across experiments. Check the otel-collector config and per-service SDK
-  settings.
+| Confound | Status | Mitigation |
+|---|---|---|
+| Closed-loop generator inflates throughput when service is cached | **Fixed** | Zeus k6 uses `constant-arrival-rate` (open-loop). Invalid if `dropped_iterations > 0`. |
+| State drift across phases (cart data, Kafka offsets) | **Fixed** | Run `reset-online-boutique-state.sh` between phases. Script flushes Redis, rolls cartservice, rolls Kafka. |
+| p50-only stub in replay-with-delay erases second moment | **Known** | Biases Δ(2−4) toward smaller magnitudes. Fix: empirical-CDF sampling from baseline traces. Tracked in atropos-go. |
+| L3 co-locator interference: frozen service frees CPU/mem, neighbors speed up | **Known** | Over-attributes savings to frozen target. Mitigate with randomized pod-to-node placement across replicate runs. |
+| Single-run point estimates | **Known** | Replicate each phase ≥3 times. Latin-square phase ordering if sequential order effects are suspected. |
+| Cache hit rate fidelity | **Known** | Verify via `GET /admin/cachebox` stats on each service after a cache-seed phase. Low hit rate means the keying strategy doesn't match the load profile. |
+
+## What scripts cannot check
+
+- **Phase reset was run** — scripts can't know which phase you're about to
+  run. Run `reset-online-boutique-state.sh` yourself between phases.
+- **Zeus workflow is open-loop** — verify `constant-arrival-rate` executor
+  in the k6 script / zeus flow JSON.
+- **Pod placement** — for L3 mitigation, randomize pod-to-node mapping
+  across replicate runs (pod anti-affinity or random scheduler). Record
+  the placement in `ExperimentRun.NodePlacement`.
