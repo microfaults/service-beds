@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/cartstore"
 	"github.com/GoogleCloudPlatform/microservices-demo/src/cartservice/model"
@@ -38,6 +38,25 @@ func main() {
 		log.Fatalf("failed to init atropos: %v", err)
 	}
 	defer shutdown(ctx)
+
+	eval := atropos.NewStaticEvaluator()
+	cb := atropos.NewCacheBox(atropos.CacheBoxConfig{
+		Store: atropos.NewCacheBoxMemStore(1000),
+	})
+	atropos.Configure(
+		atropos.WithEvaluator(eval),
+		atropos.WithCacheBoxCoordinator(cb),
+	)
+
+	mc, err := atropos.ConnectManteion(ctx, "cartservice",
+		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
+	)
+	if err != nil {
+		log.Printf("manteion connection failed, running offline: %v", err)
+	}
+	if mc != nil {
+		defer mc.Close(ctx)
+	}
 
 	var store cartstore.CartStore
 	redisAddr := os.Getenv("REDIS_ADDR")
@@ -154,6 +173,9 @@ func main() {
 
 	mux.Handle("GET /metrics", atropos.MetricsHandler())
 	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
+	mux.Handle("/admin/cachebox", atropos.CacheBoxAdminHandler(cb))
+	mux.Handle("/atropos/health", atropos.HealthHandler())
 
 	log.Printf("HTTP server listening on :%s", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), atropos.IngressMiddleware(mux, "cartservice")); err != nil {

@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 )
 
 // Logger for email server
@@ -95,6 +95,25 @@ func start(dummyMode bool) {
 	}
 	defer shutdown(ctx)
 
+	eval := atropos.NewStaticEvaluator()
+	cb := atropos.NewCacheBox(atropos.CacheBoxConfig{
+		Store: atropos.NewCacheBoxMemStore(1000),
+	})
+	atropos.Configure(
+		atropos.WithEvaluator(eval),
+		atropos.WithCacheBoxCoordinator(cb),
+	)
+
+	mc, err := atropos.ConnectManteion(ctx, "emailservice",
+		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
+	)
+	if err != nil {
+		logger.Warning(fmt.Sprintf("manteion connection failed, running offline: %v", err))
+	}
+	if mc != nil {
+		defer mc.Close(ctx)
+	}
+
 	// Set up HTTP handlers
 	mux := http.NewServeMux()
 	mux.HandleFunc("/send-order-confirmation", handleSendOrderConfirmation)
@@ -102,6 +121,9 @@ func start(dummyMode bool) {
 
 	mux.Handle("GET /metrics", atropos.MetricsHandler())
 	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
+	mux.Handle("/admin/cachebox", atropos.CacheBoxAdminHandler(cb))
+	mux.Handle("/atropos/health", atropos.HealthHandler())
 
 	// Get port from environment (equivalent to Python: os.environ.get('PORT', "8080"))
 	port := os.Getenv("PORT")

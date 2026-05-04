@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/shoppingassistantservice/internal/db"
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/shoppingassistantservice/internal/llm"
@@ -37,6 +37,25 @@ func main() {
 		log.Fatalf("failed to init atropos: %v", err)
 	}
 	defer shutdown(ctx)
+
+	eval := atropos.NewStaticEvaluator()
+	cb := atropos.NewCacheBox(atropos.CacheBoxConfig{
+		Store: atropos.NewCacheBoxMemStore(1000),
+	})
+	atropos.Configure(
+		atropos.WithEvaluator(eval),
+		atropos.WithCacheBoxCoordinator(cb),
+	)
+
+	mc, err := atropos.ConnectManteion(ctx, "shoppingassistantservice",
+		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
+	)
+	if err != nil {
+		log.Printf("manteion connection failed, running offline: %v", err)
+	}
+	if mc != nil {
+		defer mc.Close(ctx)
+	}
 
 	// 2. Initialize Product Store
 	var productStore db.ProductStore
@@ -96,6 +115,9 @@ func main() {
 
 	mux.Handle("GET /metrics", atropos.MetricsHandler())
 	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
+	mux.Handle("/admin/cachebox", atropos.CacheBoxAdminHandler(cb))
+	mux.Handle("/atropos/health", atropos.HealthHandler())
 
 	port := os.Getenv("PORT")
 	if port == "" {

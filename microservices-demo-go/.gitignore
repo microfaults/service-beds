@@ -2,6 +2,7 @@
 
 # Go vendor directories — run `go mod vendor` locally before building
 vendor/
+**/vendor/
 
 # Compiled binaries
 adservice

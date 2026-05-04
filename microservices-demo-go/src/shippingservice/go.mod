@@ -5,7 +5,7 @@ go 1.25.5
 toolchain go1.25.6
 
 require (
-	github.com/microfaults/atropos-go v0.0.5
+	git.ucsc.edu/microfaults/atropos-go v0.0.6
 	github.com/sirupsen/logrus v1.9.4
 )
 

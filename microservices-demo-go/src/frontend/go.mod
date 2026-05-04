@@ -4,11 +4,10 @@ go 1.25.5
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
-	github.com/GoogleCloudPlatform/microservices-demo/src/frontend v0.0.0-20260203170003-4f66ed5a4a54
+	git.ucsc.edu/microfaults/atropos-go v0.0.6
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/microfaults/atropos-go v0.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.4
 )

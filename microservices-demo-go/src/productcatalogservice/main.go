@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 
 	"github.com/sirupsen/logrus"
 )
@@ -49,6 +49,25 @@ func main() {
 	}
 	defer shutdown(ctx)
 
+	eval := atropos.NewStaticEvaluator()
+	cb := atropos.NewCacheBox(atropos.CacheBoxConfig{
+		Store: atropos.NewCacheBoxMemStore(1000),
+	})
+	atropos.Configure(
+		atropos.WithEvaluator(eval),
+		atropos.WithCacheBoxCoordinator(cb),
+	)
+
+	mc, err := atropos.ConnectManteion(ctx, "productcatalogservice",
+		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
+	)
+	if err != nil {
+		log.Warnf("manteion connection failed, running offline: %v", err)
+	}
+	if mc != nil {
+		defer mc.Close(ctx)
+	}
+
 	svc := &productCatalog{}
 	handler := &ProductHandler{service: svc}
 
@@ -67,6 +86,9 @@ func main() {
 
 	mux.Handle("GET /metrics", atropos.MetricsHandler())
 	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
+	mux.Handle("/admin/cachebox", atropos.CacheBoxAdminHandler(cb))
+	mux.Handle("/atropos/health", atropos.HealthHandler())
 
 	log.Infof("starting http server at :%s", port)
 	if err := http.ListenAndServe(":"+port, atropos.IngressMiddleware(mux, "productcatalogservice")); err != nil {
