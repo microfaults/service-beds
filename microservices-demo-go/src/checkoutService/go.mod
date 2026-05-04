@@ -3,8 +3,8 @@ module checkoutservice
 go 1.25.5
 
 require (
+	git.ucsc.edu/microfaults/atropos-go v0.0.6
 	github.com/google/uuid v1.6.0
-	github.com/microfaults/atropos-go v0.0.5
 	github.com/sirupsen/logrus v1.9.4
 	github.com/twmb/franz-go v1.20.7
 )

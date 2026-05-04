@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/frontend/clients"
 	"github.com/gorilla/mux"
@@ -78,6 +78,26 @@ func main() {
 	if shutdown != nil {
 		defer shutdown(ctx)
 	}
+
+	eval := atropos.NewStaticEvaluator()
+	cb := atropos.NewCacheBox(atropos.CacheBoxConfig{
+		Store: atropos.NewCacheBoxMemStore(1000),
+	})
+	atropos.Configure(
+		atropos.WithEvaluator(eval),
+		atropos.WithCacheBoxCoordinator(cb),
+	)
+
+	mc, err := atropos.ConnectManteion(ctx, "frontend",
+		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
+	)
+	if err != nil {
+		log.Warnf("manteion connection failed, running offline: %v", err)
+	}
+	if mc != nil {
+		defer mc.Close(ctx)
+	}
+
 	srvPort := port
 	if os.Getenv("PORT") != "" {
 		srvPort = os.Getenv("PORT")
@@ -136,6 +156,9 @@ func main() {
 
 	r.Handle(baseUrl+"/metrics", atropos.MetricsHandler()).Methods(http.MethodGet)
 	r.PathPrefix(baseUrl + "/admin/fault").Handler(atropos.FaultAdminHandler())
+	r.Handle(baseUrl+"/admin/rules", atropos.RulesAdminHandler(eval)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
+	r.Handle(baseUrl+"/admin/cachebox", atropos.CacheBoxAdminHandler(cb)).Methods(http.MethodGet, http.MethodPost)
+	r.Handle(baseUrl+"/atropos/health", atropos.HealthHandler()).Methods(http.MethodGet)
 
 	var handler http.Handler = r
 	handler = &logHandler{log: log, next: handler} // add logging

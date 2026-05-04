@@ -4,8 +4,8 @@ go 1.25.6
 
 require (
 	cloud.google.com/go/profiler v0.4.3
+	git.ucsc.edu/microfaults/atropos-go v0.0.6
 	github.com/google/uuid v1.6.0
-	github.com/microfaults/atropos-go v0.0.5
 	github.com/sirupsen/logrus v1.9.4
 )
 

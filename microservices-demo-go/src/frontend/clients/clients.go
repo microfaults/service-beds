@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/microfaults/atropos-go"
+	"git.ucsc.edu/microfaults/atropos-go"
 
 	"github.com/GoogleCloudPlatform/microservices-demo-go/src/frontend/model"
 	"github.com/pkg/errors"

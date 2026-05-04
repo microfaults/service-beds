@@ -49,10 +49,12 @@ spec:
         env:
         - name: REDIS_ADDR
           value: "redis-cart:6379"
+        - name: COLLECTOR_SERVICE_ADDR
+          value: "otel-collector:4317"
         resources:
           requests:
-            cpu: 200m
-            memory: 64Mi
+            cpu: 300m
+            memory: 128Mi
           limits:
             cpu: 300m
             memory: 128Mi
@@ -136,8 +138,8 @@ spec:
             memory: 256Mi
             cpu: 125m
           requests:
-            cpu: 70m
-            memory: 200Mi
+            cpu: 125m
+            memory: 256Mi
       volumes:
       - name: redis-data
         emptyDir: {}
