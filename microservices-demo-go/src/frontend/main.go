@@ -80,9 +80,21 @@ func main() {
 	}
 
 	eval := atropos.NewStaticEvaluator()
-	cb := atropos.NewCacheBox(atropos.CacheBoxConfig{
+
+	var cbPush *atropos.CachePushClient
+	cbCfg := atropos.CacheBoxConfig{
 		Store: atropos.NewCacheBoxMemStore(1000),
-	})
+	}
+	if manteionURL := os.Getenv("MANTEION_URL"); manteionURL != "" {
+		cbPush = atropos.NewCachePushClient(atropos.CachePushConfig{
+			BaseURL:  manteionURL,
+			Service:  "frontend",
+			Instance: os.Getenv("HOSTNAME"),
+		})
+		cbCfg.Push = cbPush.PushFunc()
+	}
+
+	cb := atropos.NewCacheBox(cbCfg)
 	atropos.Configure(
 		atropos.WithEvaluator(eval),
 		atropos.WithCacheBoxCoordinator(cb),
@@ -96,6 +108,9 @@ func main() {
 	}
 	if mc != nil {
 		defer mc.Close(ctx)
+	}
+	if cbPush != nil {
+		defer cbPush.Stop()
 	}
 
 	srvPort := port
