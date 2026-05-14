@@ -17,17 +17,15 @@ ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
 
-
 # restore dependencies
 COPY go.mod go.sum ./
-
 COPY . .
 
 # Skaffold passes in debug-oriented compiler flags
 ARG SKAFFOLD_GO_GCFLAGS
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -mod=vendor -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /shoppingassistantservice .
 
-FROM gcr.io/distroless/static
+FROM alpine:3.22
 
 WORKDIR /src
 COPY --from=builder /shoppingassistantservice /src/shoppingassistantservice

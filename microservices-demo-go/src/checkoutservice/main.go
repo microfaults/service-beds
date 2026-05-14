@@ -65,11 +65,9 @@ func main() {
 		atropos.WithServiceVersion("0.1.0"),
 	)
 	if err != nil {
-		log.Warnf("failed to init atropos: %v", err)
+		log.Fatalf("failed to init atropos: %v", err)
 	}
-	if shutdown != nil {
-		defer shutdown(ctx)
-	}
+	defer shutdown(ctx)
 
 	eval := atropos.NewStaticEvaluator()
 

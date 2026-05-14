@@ -56,11 +56,9 @@ func main() {
 		atropos.WithServiceVersion("0.1.0"),
 	)
 	if err != nil {
-		log.Warnf("failed to init atropos: %v", err)
+		log.Fatalf("failed to init atropos: %v", err)
 	}
-	if shutdown != nil {
-		defer shutdown(ctx)
-	}
+	defer shutdown(ctx)
 
 	eval := atropos.NewStaticEvaluator()
 
@@ -150,7 +148,11 @@ func handleGetQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate a quote based on the total number of items to be shipped.
-	quote := CreateQuoteFromCount(0)
+	count := 0
+	for _, item := range req.Items {
+		count += int(item.Quantity)
+	}
+	quote := CreateQuoteFromCount(count)
 
 	resp := GetQuoteResponse{
 		CostUsd: Money{

@@ -49,9 +49,6 @@ spec:
         env:
         - name: PORT
           value: "50051"
-        - name: DISABLE_PROFILER
-          value: "1"
-        #Enabled tracing
         - name: ENABLE_TRACING
           value: "1"
         - name: COLLECTOR_SERVICE_ADDR

@@ -28,7 +28,6 @@ import (
 
 	"git.ucsc.edu/microfaults/atropos-go"
 
-	"cloud.google.com/go/profiler"
 	"github.com/sirupsen/logrus"
 )
 
@@ -71,11 +70,9 @@ func main() {
 		atropos.WithServiceVersion("0.1.0"),
 	)
 	if err != nil {
-		log.Warnf("failed to init atropos: %v", err)
+		log.Fatalf("failed to init atropos: %v", err)
 	}
-	if shutdown != nil {
-		defer shutdown(ctx)
-	}
+	defer shutdown(ctx)
 
 	eval := atropos.NewStaticEvaluator()
 
@@ -109,13 +106,6 @@ func main() {
 	}
 	if cbPush != nil {
 		defer cbPush.Stop()
-	}
-
-	if profilerEnabled() {
-		log.Info("Profiling enabled.")
-		go initProfiling(log, "currencyservice", "1.0.0")
-	} else {
-		log.Info("Profiling disabled.")
 	}
 
 	port := defaultPort
@@ -162,33 +152,6 @@ func newLogger() *logrus.Logger {
 	}
 	log.Out = os.Stdout
 	return log
-}
-
-func profilerEnabled() bool {
-	// Backwards-compat: legacy Node version used DISABLE_PROFILER=1.
-	if os.Getenv("DISABLE_PROFILER") == "1" {
-		return false
-	}
-	return os.Getenv("ENABLE_PROFILER") == "1"
-}
-
-func initProfiling(log logrus.FieldLogger, serviceName, version string) {
-	for i := 1; i <= 3; i++ {
-		log = log.WithField("retry", i)
-		if err := profiler.Start(profiler.Config{
-			Service:        serviceName,
-			ServiceVersion: version,
-		}); err != nil {
-			log.Warnf("warn: failed to start profiler: %+v", err)
-		} else {
-			log.Info("started profiler")
-			return
-		}
-		d := time.Second * 10 * time.Duration(i)
-		log.Debugf("sleeping %v to retry initializing profiler", d)
-		time.Sleep(d)
-	}
-	log.Warn("warning: could not initialize profiler after retrying, giving up")
 }
 
 func (s *service) loadRates() error {

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-export GOPRIVATE="github.com/microfaults/*"
+export GOPRIVATE="git.ucsc.edu/microfaults/*"
 
 SERVICES=(
   "src/emailservice"
@@ -9,7 +9,7 @@ SERVICES=(
   "src/recommendationservice"
   "src/shoppingassistantservice"
   "src/shippingservice"
-  "src/checkoutService"
+  "src/checkoutservice"
   "src/paymentservice"
   "src/currencyservice"
   "src/cartservice/src"

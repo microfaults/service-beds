@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 )
 
@@ -150,5 +151,126 @@ func TestHealth(t *testing.T) {
 
 	if resp["status"] != "serving" {
 		t.Errorf("expected status 'serving', got %q", resp["status"])
+	}
+}
+
+// TestGetQuoteEmptyCart verifies that an empty cart returns a zero quote.
+func TestGetQuoteEmptyCart(t *testing.T) {
+	reqBody := GetQuoteRequest{
+		Address: &Address{
+			StreetAddress: "221B Baker Street",
+			City:          "London",
+			Country:       "England",
+		},
+		Items: []CartItem{},
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("failed to marshal request: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/shipping/quote", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handleGetQuote(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp GetQuoteResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.CostUsd.Units != 0 || resp.CostUsd.Nanos != 0 {
+		t.Errorf("expected zero quote for empty cart, got units=%d, nanos=%d",
+			resp.CostUsd.Units, resp.CostUsd.Nanos)
+	}
+}
+
+// TestCreateQuoteFromFloat verifies quote creation from float values.
+func TestCreateQuoteFromFloat(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   float64
+		dollars uint32
+		cents   uint32
+	}{
+		{"zero", 0.0, 0, 0},
+		{"whole dollars", 10.0, 10, 0},
+		{"with cents", 8.99, 8, 99},
+		{"small value", 0.50, 0, 50},
+		{"large value", 100.01, 100, 1},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			q := CreateQuoteFromFloat(tc.value)
+			if q.Dollars != tc.dollars || q.Cents != tc.cents {
+				t.Errorf("CreateQuoteFromFloat(%v) = $%d.%d, want $%d.%d",
+					tc.value, q.Dollars, q.Cents, tc.dollars, tc.cents)
+			}
+		})
+	}
+}
+
+// TestCreateQuoteFromCount verifies count-based quote generation.
+func TestCreateQuoteFromCount(t *testing.T) {
+	zeroQuote := CreateQuoteFromCount(0)
+	if zeroQuote.Dollars != 0 || zeroQuote.Cents != 0 {
+		t.Errorf("CreateQuoteFromCount(0) = %s, want $0.0", zeroQuote)
+	}
+
+	nonZeroQuote := CreateQuoteFromCount(5)
+	if nonZeroQuote.Dollars == 0 && nonZeroQuote.Cents == 0 {
+		t.Error("CreateQuoteFromCount(5) returned zero, expected a non-zero quote")
+	}
+}
+
+// TestTrackingIdFormat verifies the tracking ID matches the expected pattern.
+func TestTrackingIdFormat(t *testing.T) {
+	pattern := regexp.MustCompile(`^[A-Z]{2}-\d+-\d+$`)
+
+	for i := 0; i < 20; i++ {
+		id := CreateTrackingId("test-salt-value")
+		if !pattern.MatchString(id) {
+			t.Errorf("CreateTrackingId: %q does not match expected pattern '[A-Z]{2}-\\d+-\\d+'", id)
+		}
+	}
+}
+
+// TestTrackingIdUniqueness checks that generated IDs are not all identical.
+func TestTrackingIdUniqueness(t *testing.T) {
+	seen := make(map[string]bool)
+	for i := 0; i < 50; i++ {
+		id := CreateTrackingId("same-salt")
+		seen[id] = true
+	}
+	if len(seen) < 2 {
+		t.Errorf("CreateTrackingId: expected unique IDs but got %d distinct values out of 50", len(seen))
+	}
+}
+
+// TestGetRandomLetterCode verifies the output is a valid uppercase letter.
+func TestGetRandomLetterCode(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		code := getRandomLetterCode()
+		if code < 65 || code > 90 {
+			t.Errorf("getRandomLetterCode: got %d (%c), expected range 65-90 (A-Z)", code, code)
+		}
+	}
+}
+
+// TestGetRandomNumber verifies the output has the correct number of digits.
+func TestGetRandomNumber(t *testing.T) {
+	for _, digits := range []int{1, 3, 5, 7, 10} {
+		result := getRandomNumber(digits)
+		if len(result) != digits {
+			t.Errorf("getRandomNumber(%d) = %q (len %d), expected length %d",
+				digits, result, len(result), digits)
+		}
 	}
 }

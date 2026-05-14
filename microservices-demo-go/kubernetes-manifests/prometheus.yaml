@@ -40,9 +40,12 @@ data:
       - job_name: 'shippingservice'
         static_configs:
           - targets: ['shippingservice:50051']
-      - job_name: 'shoppingassistantservice'
-        static_configs:
-          - targets: ['shoppingassistantservice:80']
+      # Disabled by default: shoppingassistantservice runs in mock mode for
+      # local demos. Uncomment to enable scraping when LLM/AlloyDB backends
+      # are wired and the service is exercising real traffic.
+      # - job_name: 'shoppingassistantservice'
+      #   static_configs:
+      #     - targets: ['shoppingassistantservice:80']
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -1,21 +1,33 @@
-FROM golang:1.25.6-alpine AS builder
-
+FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine@sha256:d9b2e14101f27ec8d09674cd01186798d227bb0daec90e032aeb1cd22ac0f029 AS builder
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
 
+# restore dependencies
 COPY go.mod go.sum ./
-COPY vendor/ vendor/
 COPY . .
 
-RUN go build -mod=vendor -o /go/bin/frontend .
+# Skaffold passes in debug-oriented compiler flags
+ARG SKAFFOLD_GO_GCFLAGS
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -mod=vendor -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /frontend .
 
-FROM alpine:3.21.2
-RUN apk add --no-cache ca-certificates busybox-extras net-tools bind-tools
+FROM alpine:3.22
+
+# ca-certificates is required for HTTPS calls from the frontend (e.g. external
+# image loads, third-party APIs). Other internal services talk plaintext
+# HTTP/gRPC to in-cluster peers and don't need certs.
+RUN apk add --no-cache ca-certificates
+
 WORKDIR /src
-COPY --from=builder /go/bin/frontend /src/frontend
+COPY --from=builder /frontend /src/frontend
 COPY --from=builder /src/templates /src/templates
 COPY --from=builder /src/static /src/static
 
+# Definition of this variable is used by 'skaffold debug' to identify a golang binary.
+# Default behavior - a failure prints a stack trace for the current goroutine.
+# See https://golang.org/pkg/runtime/
 ENV GOTRACEBACK=single
 
+ENV PORT=8080
 EXPOSE 8080
 ENTRYPOINT ["/src/frontend"]

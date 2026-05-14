@@ -1,9 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set GOPRIVATE=github.com/microfaults/*
+set GOPRIVATE=git.ucsc.edu/microfaults/*
 
-set SERVICES=src\emailservice src\productcatalogservice src\recommendationservice src\shoppingassistantservice src\shippingservice src\checkoutService src\paymentservice src\currencyservice src\cartservice\src src\frontend src\adservice
+set SERVICES=src\emailservice src\productcatalogservice src\recommendationservice src\shoppingassistantservice src\shippingservice src\checkoutservice src\paymentservice src\currencyservice src\cartservice\src src\frontend src\adservice
 
 set SCRIPT_DIR=%~dp0
 

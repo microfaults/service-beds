@@ -26,6 +26,7 @@ resources:
  - productcatalogservice.yaml
  - recommendationservice.yaml
  - shippingservice.yaml
+ - shoppingassistantservice.yaml
  - otel-collector.yaml
  - tempo.yaml
  - prometheus.yaml

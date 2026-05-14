@@ -7,94 +7,37 @@ build:
   artifacts:
   - image: emailservice
     context: src/emailservice
+    # Single pre-build hook vendors all services via run_vendor.sh / run_vendor.bat.
+    # Skaffold runs hooks once before any artifact build; we attach to the first
+    # artifact for clarity.
     hooks:
       before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
+        - command: ["cmd", "/C", "run_vendor.bat"]
           os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
+        - command: ["sh", "-c", "./run_vendor.sh"]
           os: [darwin, linux]
   - image: productcatalogservice
     context: src/productcatalogservice
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
   - image: recommendationservice
     context: src/recommendationservice
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
   - image: shoppingassistantservice
     context: src/shoppingassistantservice
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
   - image: shippingservice
     context: src/shippingservice
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
   - image: checkoutservice
-    context: src/checkoutService
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
+    context: src/checkoutservice
   - image: paymentservice
     context: src/paymentservice
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
   - image: currencyservice
     context: src/currencyservice
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
   - image: cartservice
     context: src/cartservice/src
     docker:
       dockerfile: Dockerfile
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
   - image: frontend
     context: src/frontend
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
   - image: adservice
     context: src/adservice
-    hooks:
-      before:
-        - command: ["cmd", "/C", "set GOPRIVATE=github.com/microfaults/* && go mod vendor"]
-          os: [windows]
-        - command: ["sh", "-c", "GOPRIVATE=github.com/microfaults/* go mod vendor"]
-          os: [darwin, linux]
   tagPolicy:
     gitCommit: {}
   local:

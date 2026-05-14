@@ -160,11 +160,6 @@ func start(dummyMode bool) {
 func main() {
 	logger.Info("starting the email service in dummy mode.")
 
-	// Profiler disabled by default (equivalent to Python profiler logic)
-	if os.Getenv("DISABLE_PROFILER") == "" {
-		logger.Info("Profiler disabled.")
-	}
-
 	// Start in dummy mode (equivalent to Python: start(dummy_mode = True))
 	start(true)
 }

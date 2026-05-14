@@ -4,15 +4,15 @@
 vendor/
 **/vendor/
 
-# Compiled binaries
-adservice
-cartservice
-checkoutservice
-currencyservice
-emailservice
-frontend
-paymentservice
-productcatalogservice
-recommendationservice
-shippingservice
-shoppingassistantservice
+# Compiled binaries dropped next to sources by `go build`
+src/adservice/adservice
+src/cartservice/src/cartservice
+src/checkoutservice/checkoutservice
+src/currencyservice/currencyservice
+src/emailservice/emailservice
+src/frontend/frontend
+src/paymentservice/paymentservice
+src/productcatalogservice/productcatalogservice
+src/recommendationservice/recommendationservice
+src/shippingservice/shippingservice
+src/shoppingassistantservice/shoppingassistantservice
