@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine@sha256:d9b2e14101f27ec8d09674cd01186798d227bb0daec90e032aeb1cd22ac0f029 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine AS builder
 ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
@@ -28,7 +28,10 @@ RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -mod=vendor -ld
 FROM alpine:3.22
 
 WORKDIR /src
-COPY --from=builder /emailservice /src/emailservice
+
+# Binary runs as `server` (historical naming) and reads templates relative to
+# CWD (/src), so templates land at /src/templates.
+COPY --from=builder /emailservice ./server
 COPY --from=builder /src/templates /src/templates
 
 # Definition of this variable is used by 'skaffold debug' to identify a golang binary.
@@ -36,6 +39,5 @@ COPY --from=builder /src/templates /src/templates
 # See https://golang.org/pkg/runtime/
 ENV GOTRACEBACK=single
 
-ENV PORT=8080
 EXPOSE 8080
-ENTRYPOINT ["/src/emailservice"]
+ENTRYPOINT ["/src/server"]

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine@sha256:d9b2e14101f27ec8d09674cd01186798d227bb0daec90e032aeb1cd22ac0f029 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine AS builder
 ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
@@ -25,7 +25,7 @@ COPY . .
 ARG SKAFFOLD_GO_GCFLAGS
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -mod=vendor -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /shoppingassistantservice .
 
-FROM alpine:3.22
+FROM gcr.io/distroless/static
 
 WORKDIR /src
 COPY --from=builder /shoppingassistantservice /src/shoppingassistantservice
