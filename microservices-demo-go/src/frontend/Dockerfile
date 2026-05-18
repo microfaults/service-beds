@@ -1,6 +1,9 @@
+# Define a default value so it's not empty if the builder fails to provide it
+ARG BUILDPLATFORM=linux/amd64
+
 FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine AS builder
-ARG TARGETOS
-ARG TARGETARCH
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 WORKDIR /src
 
 # restore dependencies

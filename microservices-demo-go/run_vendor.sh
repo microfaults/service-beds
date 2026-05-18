@@ -1,4 +1,5 @@
 #!/bin/bash
+export PATH=${GO_BIN_DIR:-/usr/local/go/bin}:$PATH
 set -e
 
 export GOPRIVATE="git.ucsc.edu/microfaults/*"

@@ -3,7 +3,9 @@ kind: Config
 metadata:
   name: app
 build:
-  platforms: ["linux/amd64", "linux/arm64"]
+  # use this for Mac platforms: ["linux/arm64"]
+  # the default is for linux machines like our VM
+  platforms: ["linux/amd64"]
   artifacts:
   - image: emailservice
     context: src/emailservice
