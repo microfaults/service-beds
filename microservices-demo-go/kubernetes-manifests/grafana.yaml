@@ -7,20 +7,30 @@ data:
     apiVersion: 1
     datasources:
       - name: Prometheus
+        uid: prometheus
         type: prometheus
         access: proxy
         url: http://prometheus:9090
         isDefault: true
+        jsonData:
+          timeInterval: "10s"
       - name: Tempo
+        uid: tempo
         type: tempo
         access: proxy
         url: http://tempo:3200
         jsonData:
           tracesToMetrics:
             datasourceUid: prometheus
+          tracesToLogs:
+            datasourceUid: prometheus
           nodeGraph:
             enabled: true
           serviceMap:
+            datasourceUid: prometheus
+          search:
+            hide: false
+          lokiSearch:
             datasourceUid: prometheus
 ---
 apiVersion: v1
@@ -34,8 +44,12 @@ data:
       - name: default
         folder: ''
         type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        allowUiUpdates: true
         options:
           path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -56,11 +70,43 @@ spec:
           image: grafana/grafana:11.6.0
           ports:
             - containerPort: 3000
+              name: http
           env:
+            # Anonymous access with Admin role — fine for an isolated research VM.
+            # Replace with GF_SECURITY_ADMIN_USER/PASSWORD via a Secret before
+            # exposing outside the lab network.
             - name: GF_AUTH_ANONYMOUS_ENABLED
               value: "true"
             - name: GF_AUTH_ANONYMOUS_ORG_ROLE
               value: "Admin"
+            # Modern Tempo UX: TraceQL editor + traces↔metrics navigation.
+            - name: GF_FEATURE_TOGGLES_ENABLE
+              value: "traceqlEditor,traceToMetrics"
+            # Hide the spinner-of-doom when a panel takes a few seconds.
+            - name: GF_DATAPROXY_TIMEOUT
+              value: "60"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           volumeMounts:
             - name: grafana-datasources
               mountPath: /etc/grafana/provisioning/datasources
@@ -84,9 +130,15 @@ kind: Service
 metadata:
   name: grafana
 spec:
-  type: ClusterIP
+  # NodePort on 30030 — reachable as http://<vm1-ip>:30030 without port-forward.
+  # k3s on a single node treats this as direct host-port; safe because the VM
+  # is inside the lab network and grafana auth is anonymous-by-design here.
+  type: NodePort
   ports:
     - port: 3000
       targetPort: 3000
+      nodePort: 30030
+      protocol: TCP
+      name: http
   selector:
     app: grafana

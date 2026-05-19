@@ -380,3 +380,237 @@ data:
       ],
       "schemaVersion": 39
     }
+  boutique-services-red.json: |
+    {
+      "uid": "boutique-services-red",
+      "title": "Boutique Services — RED",
+      "tags": ["boutique", "atropos", "red"],
+      "version": 1,
+      "editable": true,
+      "time": { "from": "now-15m", "to": "now" },
+      "refresh": "10s",
+      "templating": {
+        "list": [
+          {
+            "name": "service",
+            "type": "query",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "query": "label_values(http_server_request_duration_seconds_count, service)",
+            "includeAll": true,
+            "multi": true,
+            "refresh": 2,
+            "current": { "selected": true, "text": "All", "value": "$__all" }
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Total request rate",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 1 } },
+          "options": { "graphMode": "area", "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(rate(http_server_request_duration_seconds_count{service=~\"$service\"}[1m]))"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Error rate (status>=500)",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "decimals": 2,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 0.01 },
+                  { "color": "red", "value": 0.05 }
+                ]
+              }
+            }
+          },
+          "options": { "graphMode": "area", "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(rate(http_server_request_duration_seconds_count{service=~\"$service\",status_code=~\"5..\"}[1m])) / clamp_min(sum(rate(http_server_request_duration_seconds_count{service=~\"$service\"}[1m])), 1)"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "p95 latency (all services)",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "s", "decimals": 3 } },
+          "options": { "graphMode": "area", "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[1m])))"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Active services scraped",
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "none", "decimals": 0 } },
+          "options": { "graphMode": "none", "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "targets": [
+            { "refId": "A", "expr": "count(up{job=~\".+service\"} == 1)" }
+          ]
+        },
+        {
+          "id": 10,
+          "type": "timeseries",
+          "title": "Request rate by service (req/s)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "lineInterpolation": "linear", "fillOpacity": 10 } } },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] } },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "{{service}}",
+              "expr": "sum by (service) (rate(http_server_request_duration_seconds_count{service=~\"$service\"}[1m]))"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Error rate by service (status>=500, req/s)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "lineInterpolation": "linear", "fillOpacity": 30, "stacking": { "mode": "normal" } } } },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] } },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "{{service}}",
+              "expr": "sum by (service) (rate(http_server_request_duration_seconds_count{service=~\"$service\",status_code=~\"5..\"}[1m]))"
+            }
+          ]
+        },
+        {
+          "id": 20,
+          "type": "timeseries",
+          "title": "p50 latency by service",
+          "gridPos": { "h": 7, "w": 8, "x": 0, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineInterpolation": "linear", "fillOpacity": 5 } } },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "{{service}}",
+              "expr": "histogram_quantile(0.50, sum by (service, le) (rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[1m])))"
+            }
+          ]
+        },
+        {
+          "id": 21,
+          "type": "timeseries",
+          "title": "p95 latency by service",
+          "gridPos": { "h": 7, "w": 8, "x": 8, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineInterpolation": "linear", "fillOpacity": 5 } } },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "{{service}}",
+              "expr": "histogram_quantile(0.95, sum by (service, le) (rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[1m])))"
+            }
+          ]
+        },
+        {
+          "id": 22,
+          "type": "timeseries",
+          "title": "p99 latency by service",
+          "gridPos": { "h": 7, "w": 8, "x": 16, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineInterpolation": "linear", "fillOpacity": 5 } } },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "{{service}}",
+              "expr": "histogram_quantile(0.99, sum by (service, le) (rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[1m])))"
+            }
+          ]
+        },
+        {
+          "id": 30,
+          "type": "timeseries",
+          "title": "Span call rate (OTel spanmetrics, server-side)",
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 19 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineInterpolation": "linear", "fillOpacity": 10 } } },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] } },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "{{service_name}}",
+              "expr": "sum by (service_name) (rate(calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[1m]))"
+            }
+          ]
+        },
+        {
+          "id": 31,
+          "type": "timeseries",
+          "title": "Span p95 latency (OTel spanmetrics, ms)",
+          "gridPos": { "h": 7, "w": 12, "x": 12, "y": 19 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "ms", "custom": { "lineInterpolation": "linear", "fillOpacity": 5 } } },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] } },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "{{service_name}}",
+              "expr": "histogram_quantile(0.95, sum by (service_name, le) (rate(duration_milliseconds_bucket{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[1m])))"
+            }
+          ]
+        },
+        {
+          "id": 40,
+          "type": "table",
+          "title": "Top endpoints by p95 latency",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 26 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "options": { "showHeader": true, "sortBy": [{ "displayName": "p95 (s)", "desc": true }] },
+          "fieldConfig": {
+            "defaults": { "custom": { "align": "auto" } },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Value" }, "properties": [{ "id": "displayName", "value": "p95 (s)" }, { "id": "unit", "value": "s" }, { "id": "decimals", "value": 3 }] }
+            ]
+          },
+          "transformations": [
+            { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true, "exported_job": true } } }
+          ],
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "instant": true,
+              "expr": "topk(15, histogram_quantile(0.95, sum by (service, method, status_code, le) (rate(http_server_request_duration_seconds_bucket{service=~\"$service\"}[5m]))))"
+            }
+          ]
+        }
+      ],
+      "schemaVersion": 39
+    }
