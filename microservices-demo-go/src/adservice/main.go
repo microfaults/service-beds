@@ -70,20 +70,20 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ads", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		// GetAds is the REST projection of the upstream gRPC
+		// `AdService.GetAds(AdRequest{context_keys})` read RPC. Reads use GET
+		// with repeated `?context_keys=` query parameters; the frontend client
+		// in src/frontend/clients/clients.go:GetAds is the canonical caller.
+		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		var req AdRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+		contextKeys := r.URL.Query()["context_keys"]
 
-		logger.Info("received ad request", "context_keys", req.ContextKeys)
+		logger.Info("received ad request", "context_keys", contextKeys)
 
-		ads := service.GetAdsByCategory(req.ContextKeys)
+		ads := service.GetAdsByCategory(contextKeys)
 		resp := AdResponse{Ads: ads}
 
 		w.Header().Set("Content-Type", "application/json")
