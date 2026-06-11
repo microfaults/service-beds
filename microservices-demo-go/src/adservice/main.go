@@ -53,6 +53,10 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "GET", Path: "/ads", Description: "List ad candidates for the given context keys (query: context_keys)"},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "adservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

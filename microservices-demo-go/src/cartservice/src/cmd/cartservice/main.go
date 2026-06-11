@@ -48,6 +48,12 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "POST", Path: "/cart/{user_id}/items", Description: "Add an item to the user's cart"},
+		atropos.Route{Method: "GET", Path: "/cart/{user_id}", Description: "Fetch the user's cart", DependsOn: []string{"POST /cart/{user_id}/items"}},
+		atropos.Route{Method: "DELETE", Path: "/cart/{user_id}", Description: "Empty the user's cart", DependsOn: []string{"POST /cart/{user_id}/items"}},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "cartservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

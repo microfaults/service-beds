@@ -59,6 +59,10 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "POST", Path: "/", Description: "LLM shopping assistant: interior-design product suggestions from a room image and prompt"},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "shoppingassistantservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

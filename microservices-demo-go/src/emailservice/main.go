@@ -116,6 +116,10 @@ func start(dummyMode bool) {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "POST", Path: "/send-order-confirmation", Description: "Send an order confirmation email"},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "emailservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

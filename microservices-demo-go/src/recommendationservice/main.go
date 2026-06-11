@@ -142,6 +142,10 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "GET", Path: "/recommendations", Description: "List product recommendations (query: product_ids, user_id)"},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "recommendationservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

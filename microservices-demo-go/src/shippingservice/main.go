@@ -81,6 +81,11 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "POST", Path: "/shipping/quote", Description: "Get a shipping quote for an address and item list"},
+		atropos.Route{Method: "POST", Path: "/shipping/ship", Description: "Ship an order; returns a tracking ID"},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "shippingservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

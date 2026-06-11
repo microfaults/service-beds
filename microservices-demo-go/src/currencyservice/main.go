@@ -95,6 +95,11 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "GET", Path: "/currencies", Description: "List supported currency codes"},
+		atropos.Route{Method: "POST", Path: "/convert", Description: "Convert a money amount between currencies"},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "currencyservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

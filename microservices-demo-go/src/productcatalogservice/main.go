@@ -70,6 +70,13 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "GET", Path: "/products", Description: "List all products in the catalog"},
+		atropos.Route{Method: "GET", Path: "/products/{id}", Description: "Fetch a single product by ID"},
+		atropos.Route{Method: "POST", Path: "/products/batch", Description: "Fetch multiple products by ID list"},
+		atropos.Route{Method: "GET", Path: "/products/search", Description: "Search products by name or description (query: q)"},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "productcatalogservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

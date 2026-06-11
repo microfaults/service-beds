@@ -100,6 +100,10 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "POST", Path: "/charge", Description: "Charge a credit card for the given amount"},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "paymentservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

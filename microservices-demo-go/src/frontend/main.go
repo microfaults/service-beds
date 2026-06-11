@@ -98,6 +98,20 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "GET", Path: "/", Description: "Home page: product listing"},
+		atropos.Route{Method: "GET", Path: "/product/{id}", Description: "Product detail page"},
+		atropos.Route{Method: "POST", Path: "/cart", Description: "Add a product to the cart"},
+		atropos.Route{Method: "GET", Path: "/cart", Description: "View cart with shipping estimate", DependsOn: []string{"POST /cart"}},
+		atropos.Route{Method: "POST", Path: "/cart/empty", Description: "Empty the cart", DependsOn: []string{"POST /cart"}},
+		atropos.Route{Method: "POST", Path: "/cart/checkout", Description: "Place the order for the current cart", DependsOn: []string{"POST /cart"}},
+		atropos.Route{Method: "POST", Path: "/setCurrency", Description: "Set the session display currency"},
+		atropos.Route{Method: "GET", Path: "/logout", Description: "Clear the session and log out"},
+		atropos.Route{Method: "GET", Path: "/assistant", Description: "Shopping assistant page"},
+		atropos.Route{Method: "GET", Path: "/product-meta/{ids}", Description: "Product metadata for a comma-separated ID list"},
+		atropos.Route{Method: "POST", Path: "/bot", Description: "Chat request forwarded to the shopping assistant"},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "frontend",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)
