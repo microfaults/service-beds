@@ -90,6 +90,10 @@ func main() {
 		atropos.WithCacheBoxCoordinator(cb),
 	)
 
+	atropos.RegisterRoutes(
+		atropos.Route{Method: "POST", Path: "/placeorder", Description: "Place an order: prices the cart, charges payment, ships, empties the cart, and emails confirmation", DependsOn: []string{"cartservice POST /cart/{user_id}/items"}},
+	)
+
 	mc, err := atropos.ConnectManteion(ctx, "checkoutservice",
 		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
 	)

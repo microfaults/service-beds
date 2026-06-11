@@ -88,7 +88,7 @@ spec:
           - name: COLLECTOR_SERVICE_ADDR
             value: "otel-collector:4317"
           - name: MANTEION_URL
-            value: "http://manteion:8080"
+            value: "http://host.minikube.internal:9090"
           - name: MANTEION_SERVICE_VERSION
             value: "1.0.0"
             
