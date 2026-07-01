@@ -539,7 +539,7 @@ func (cs *checkoutService) chargeCard(amount *models.Money, paymentInfo *models.
 }
 
 func (cs *checkoutService) sendOrderConfirmation(email string, order *models.OrderResult) error {
-	url := fmt.Sprintf("http://%s/send", cs.emailSvcAddr)
+	url := fmt.Sprintf("http://%s/send-order-confirmation", cs.emailSvcAddr)
 
 	reqBody := models.SendOrderConfirmationRequest{
 		Email: email,

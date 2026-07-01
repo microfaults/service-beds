@@ -13,7 +13,7 @@ type Address struct {
 	City          string `json:"city"`
 	State         string `json:"state"`
 	Country       string `json:"country"`
-	ZipCode       string `json:"zip_code"`
+	ZipCode       int32  `json:"zip_code"`
 }
 
 // CartItem represents an item in the cart
