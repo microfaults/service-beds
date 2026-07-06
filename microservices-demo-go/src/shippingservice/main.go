@@ -62,20 +62,21 @@ func main() {
 
 	eval := atropos.NewStaticEvaluator()
 
-	var cbPush *atropos.CachePushClient
-	cbCfg := atropos.CacheBoxConfig{
-		Store: atropos.NewCacheBoxMemStore(1000),
-	}
-	if manteionURL := os.Getenv("MANTEION_URL"); manteionURL != "" {
-		cbPush = atropos.NewCachePushClient(atropos.CachePushConfig{
-			BaseURL:  manteionURL,
-			Service:  "shippingservice",
-			Instance: os.Getenv("HOSTNAME"),
-		})
+	instanceID := resolveInstanceID("shippingservice")
+	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
+	// instead of evicting (an LRU MemStore silently drops recordings under load).
+	cbCfg := atropos.CacheBoxConfig{}
+	cbPush := newCachePush("shippingservice", instanceID)
+	if cbPush != nil {
 		cbCfg.Push = cbPush.PushFunc()
 	}
 
 	cb := atropos.NewCacheBox(cbCfg)
+	// Push-side fidelity counts must land in the same registry the drain report
+	// snapshots; bind before traffic flows.
+	if cbPush != nil {
+		cbPush.BindFidelity(cb.Fidelity())
+	}
 	atropos.Configure(
 		atropos.WithEvaluator(eval),
 		atropos.WithCacheBoxCoordinator(cb),
@@ -86,8 +87,13 @@ func main() {
 		atropos.Route{Method: "POST", Path: "/shipping/ship", Description: "Ship an order; returns a tracking ID"},
 	)
 
+	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
+	if cbPush != nil {
+		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
+	}
 	mc, err := atropos.ConnectManteion(ctx, "shippingservice",
-		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
+		atropos.WithInstanceID(instanceID),
+		atropos.WithApplyTargets(applyTargets),
 	)
 	if err != nil {
 		log.Warnf("manteion connection failed, running offline: %v", err)
@@ -113,8 +119,9 @@ func main() {
 
 	mux.Handle("GET /metrics", atropos.MetricsHandler())
 	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
 	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mux.Handle("/admin/cachebox", atropos.CacheBoxAdminHandler(cb))
+	mountCacheBox(mux, cb, "shippingservice", instanceID)
 	mux.Handle("/atropos/health", atropos.HealthHandler())
 
 	srv := &http.Server{

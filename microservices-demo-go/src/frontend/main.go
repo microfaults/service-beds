@@ -79,20 +79,40 @@ func main() {
 
 	eval := atropos.NewStaticEvaluator()
 
-	var cbPush *atropos.CachePushClient
-	cbCfg := atropos.CacheBoxConfig{
-		Store: atropos.NewCacheBoxMemStore(1000),
+	// instanceID must be identical everywhere manteion correlates this SDK
+	// instance: the register call (WithInstanceID, below), the cache-push
+	// client (ingest envelopes + W3 drain reports), and the fidelity handler.
+	// Resolve it once. MANTEION_INSTANCE_ID > hostname (the pod name in k8s).
+	instanceID := os.Getenv("MANTEION_INSTANCE_ID")
+	if instanceID == "" {
+		instanceID, _ = os.Hostname()
 	}
+	if instanceID == "" {
+		instanceID = "frontend"
+	}
+
+	var cbPush *atropos.CachePushClient
+	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
+	// instead of evicting. An LRU MemStore would silently drop recordings under
+	// load and corrupt the fidelity verdict.
+	cbCfg := atropos.CacheBoxConfig{}
 	if manteionURL := os.Getenv("MANTEION_URL"); manteionURL != "" {
 		cbPush = atropos.NewCachePushClient(atropos.CachePushConfig{
 			BaseURL:  manteionURL,
 			Service:  "frontend",
-			Instance: os.Getenv("HOSTNAME"),
+			Instance: instanceID,
 		})
 		cbCfg.Push = cbPush.PushFunc()
 	}
 
 	cb := atropos.NewCacheBox(cbCfg)
+	// Point the push client's per-phase counters at the CacheBox's own fidelity
+	// registry so the drain report's push-side counts are real (not zero, which
+	// degrades every baseline drain to the slow fidelity-pull fallback). Must
+	// happen before any traffic flows -- counts recorded before the bind are lost.
+	if cbPush != nil {
+		cbPush.BindFidelity(cb.Fidelity())
+	}
 	atropos.Configure(
 		atropos.WithEvaluator(eval),
 		atropos.WithCacheBoxCoordinator(cb),
@@ -112,8 +132,17 @@ func main() {
 		atropos.Route{Method: "POST", Path: "/bot", Description: "Chat request forwarded to the shopping assistant"},
 	)
 
+	// CacheDrain fires the W3 drain report the moment a recording phase ends,
+	// so the baseline drain barrier need not wait out the full timeout. Its
+	// Observe -> SendDrainReport needs a non-nil pusher, so only wire it when a
+	// push client exists (i.e. manteion is configured).
+	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
+	if cbPush != nil {
+		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
+	}
 	mc, err := atropos.ConnectManteion(ctx, "frontend",
-		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
+		atropos.WithInstanceID(instanceID),
+		atropos.WithApplyTargets(applyTargets),
 	)
 	if err != nil {
 		log.Warnf("manteion connection failed, running offline: %v", err)
@@ -184,7 +213,12 @@ func main() {
 	r.Handle(baseUrl+"/metrics", atropos.MetricsHandler()).Methods(http.MethodGet)
 	r.PathPrefix(baseUrl + "/admin/fault").Handler(atropos.FaultAdminHandler())
 	r.Handle(baseUrl+"/admin/rules", atropos.RulesAdminHandler(eval)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
-	r.Handle(baseUrl+"/admin/cachebox", atropos.CacheBoxAdminHandler(cb)).Methods(http.MethodGet, http.MethodPost)
+	// Prefix mount: gorilla/mux won't route POST /admin/cachebox/delay (freeze)
+	// to an exact-path handler, and the bare DELETE (thaw) must route too.
+	r.PathPrefix(baseUrl + "/admin/cachebox").Handler(atropos.CacheBoxAdminHandler(cb))
+	// Staged preload (begin/chunk/commit/abort) and the pull-based fidelity verdict.
+	r.PathPrefix(baseUrl + "/cachebox/preload").Handler(atropos.CacheBoxPreloadHandler(cb))
+	r.Handle(baseUrl+"/cachebox/fidelity", atropos.CacheBoxFidelityHandler(cb, "frontend", instanceID)).Methods(http.MethodGet)
 	r.Handle(baseUrl+"/atropos/health", atropos.HealthHandler()).Methods(http.MethodGet)
 
 	var handler http.Handler = r

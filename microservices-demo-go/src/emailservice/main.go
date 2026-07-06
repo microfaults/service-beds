@@ -97,20 +97,21 @@ func start(dummyMode bool) {
 
 	eval := atropos.NewStaticEvaluator()
 
-	var cbPush *atropos.CachePushClient
-	cbCfg := atropos.CacheBoxConfig{
-		Store: atropos.NewCacheBoxMemStore(1000),
-	}
-	if manteionURL := os.Getenv("MANTEION_URL"); manteionURL != "" {
-		cbPush = atropos.NewCachePushClient(atropos.CachePushConfig{
-			BaseURL:  manteionURL,
-			Service:  "emailservice",
-			Instance: os.Getenv("HOSTNAME"),
-		})
+	instanceID := resolveInstanceID("emailservice")
+	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
+	// instead of evicting (an LRU MemStore silently drops recordings under load).
+	cbCfg := atropos.CacheBoxConfig{}
+	cbPush := newCachePush("emailservice", instanceID)
+	if cbPush != nil {
 		cbCfg.Push = cbPush.PushFunc()
 	}
 
 	cb := atropos.NewCacheBox(cbCfg)
+	// Push-side fidelity counts must land in the same registry the drain report
+	// snapshots; bind before traffic flows.
+	if cbPush != nil {
+		cbPush.BindFidelity(cb.Fidelity())
+	}
 	atropos.Configure(
 		atropos.WithEvaluator(eval),
 		atropos.WithCacheBoxCoordinator(cb),
@@ -120,8 +121,13 @@ func start(dummyMode bool) {
 		atropos.Route{Method: "POST", Path: "/send-order-confirmation", Description: "Send an order confirmation email"},
 	)
 
+	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
+	if cbPush != nil {
+		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
+	}
 	mc, err := atropos.ConnectManteion(ctx, "emailservice",
-		atropos.WithApplyTargets(atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}),
+		atropos.WithInstanceID(instanceID),
+		atropos.WithApplyTargets(applyTargets),
 	)
 	if err != nil {
 		logger.Warning(fmt.Sprintf("manteion connection failed, running offline: %v", err))
@@ -140,8 +146,9 @@ func start(dummyMode bool) {
 
 	mux.Handle("GET /metrics", atropos.MetricsHandler())
 	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
+	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
 	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mux.Handle("/admin/cachebox", atropos.CacheBoxAdminHandler(cb))
+	mountCacheBox(mux, cb, "emailservice", instanceID)
 	mux.Handle("/atropos/health", atropos.HealthHandler())
 
 	// Get port from environment (equivalent to Python: os.environ.get('PORT', "8080"))

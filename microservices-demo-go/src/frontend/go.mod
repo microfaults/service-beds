@@ -4,7 +4,7 @@ go 1.25.6
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
-	git.ucsc.edu/microfaults/atropos-go v0.0.8-alpha.a1ba3ac
+	git.ucsc.edu/microfaults/atropos-go v0.0.9-alpha.91bb818
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
@@ -50,5 +50,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace git.ucsc.edu/microfaults/atropos-go => ../../../../atropos-go

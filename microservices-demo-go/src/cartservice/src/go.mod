@@ -3,7 +3,7 @@ module github.com/GoogleCloudPlatform/microservices-demo/src/cartservice
 go 1.25.6
 
 require (
-	git.ucsc.edu/microfaults/atropos-go v0.0.8-alpha.a1ba3ac
+	git.ucsc.edu/microfaults/atropos-go v0.0.9-alpha.91bb818
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/redis/go-redis/v9 v9.17.3
 )
@@ -47,5 +47,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace git.ucsc.edu/microfaults/atropos-go => ../../../../../atropos-go
