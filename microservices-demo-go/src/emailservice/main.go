@@ -85,71 +85,25 @@ func start(dummyMode bool) {
 	}
 
 	ctx := context.Background()
-	shutdown, err := atropos.Init(ctx,
-		atropos.WithServiceName("emailservice"),
-		atropos.WithServiceVersion("0.1.0"),
-	)
-	if err != nil {
-		logger.Error(fmt.Sprintf("failed to init atropos: %s", err.Error()))
-		os.Exit(1)
-	}
-	defer shutdown(ctx)
-
-	eval := atropos.NewStaticEvaluator()
-
-	instanceID := resolveInstanceID("emailservice")
-	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
-	// instead of evicting (an LRU MemStore silently drops recordings under load).
-	cbCfg := atropos.CacheBoxConfig{}
-	cbPush := newCachePush("emailservice", instanceID)
-	if cbPush != nil {
-		cbCfg.Push = cbPush.PushFunc()
-	}
-
-	cb := atropos.NewCacheBox(cbCfg)
-	// Push-side fidelity counts must land in the same registry the drain report
-	// snapshots; bind before traffic flows.
-	if cbPush != nil {
-		cbPush.BindFidelity(cb.Fidelity())
-	}
-	atropos.Configure(
-		atropos.WithEvaluator(eval),
-		atropos.WithCacheBoxCoordinator(cb),
-	)
-
-	atropos.RegisterRoutes(
-		atropos.Route{Method: "POST", Path: "/send-order-confirmation", Description: "Send an order confirmation email"},
-	)
-
-	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
-	if cbPush != nil {
-		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
-	}
-	mc, err := atropos.ConnectManteion(ctx, "emailservice",
-		atropos.WithInstanceID(instanceID),
-		atropos.WithApplyTargets(applyTargets),
-	)
-	if err != nil {
-		logger.Warning(fmt.Sprintf("manteion connection failed, running offline: %v", err))
-	}
-	if mc != nil {
-		defer mc.Close(ctx)
-	}
-	if cbPush != nil {
-		defer cbPush.Stop()
-	}
 
 	// Set up HTTP handlers
 	mux := http.NewServeMux()
 	mux.HandleFunc("/send-order-confirmation", handleSendOrderConfirmation)
 	mux.HandleFunc("/_healthz", handleHealth)
 
-	mux.Handle("GET /metrics", atropos.MetricsHandler())
-	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
-	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
-	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mountCacheBox(mux, cb, "emailservice", instanceID)
-	mux.Handle("/atropos/health", atropos.HealthHandler())
+	h, shutdown, err := atropos.Serve(ctx, atropos.Config{
+		Service: "emailservice",
+		Version: "0.1.0",
+		Routes: []atropos.Route{
+			{Method: "POST", Path: "/send-order-confirmation", Description: "Send an order confirmation email"},
+		},
+		Handler: mux,
+	})
+	if err != nil {
+		logger.Error(fmt.Sprintf("failed to init atropos: %s", err.Error()))
+		os.Exit(1)
+	}
+	defer shutdown(ctx)
 
 	// Get port from environment (equivalent to Python: os.environ.get('PORT', "8080"))
 	port := os.Getenv("PORT")
@@ -161,7 +115,7 @@ func start(dummyMode bool) {
 
 	// Start HTTP server (equivalent to Python: server.start())
 	addr := fmt.Sprintf(":%s", port)
-	if err := http.ListenAndServe(addr, atropos.IngressMiddleware(mux, "emailservice")); err != nil {
+	if err := http.ListenAndServe(addr, h); err != nil {
 		logger.Error(fmt.Sprintf("Server failed: %s", err.Error()))
 	}
 }

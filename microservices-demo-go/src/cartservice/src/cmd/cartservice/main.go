@@ -30,60 +30,6 @@ func main() {
 	}
 
 	ctx := context.Background()
-	shutdown, err := atropos.Init(ctx,
-		atropos.WithServiceName("cartservice"),
-		atropos.WithServiceVersion("0.1.0"),
-	)
-	if err != nil {
-		log.Fatalf("failed to init atropos: %v", err)
-	}
-	defer shutdown(ctx)
-
-	eval := atropos.NewStaticEvaluator()
-
-	instanceID := resolveInstanceID("cartservice")
-	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
-	// instead of evicting (an LRU MemStore silently drops recordings under load).
-	cbCfg := atropos.CacheBoxConfig{}
-	cbPush := newCachePush("cartservice", instanceID)
-	if cbPush != nil {
-		cbCfg.Push = cbPush.PushFunc()
-	}
-
-	cb := atropos.NewCacheBox(cbCfg)
-	// Push-side fidelity counts must land in the same registry the drain report
-	// snapshots; bind before traffic flows.
-	if cbPush != nil {
-		cbPush.BindFidelity(cb.Fidelity())
-	}
-	atropos.Configure(
-		atropos.WithEvaluator(eval),
-		atropos.WithCacheBoxCoordinator(cb),
-	)
-
-	atropos.RegisterRoutes(
-		atropos.Route{Method: "POST", Path: "/cart/{user_id}/items", Description: "Add an item to the user's cart"},
-		atropos.Route{Method: "GET", Path: "/cart/{user_id}", Description: "Fetch the user's cart", DependsOn: []string{"POST /cart/{user_id}/items"}},
-		atropos.Route{Method: "DELETE", Path: "/cart/{user_id}", Description: "Empty the user's cart", DependsOn: []string{"POST /cart/{user_id}/items"}},
-	)
-
-	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
-	if cbPush != nil {
-		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
-	}
-	mc, err := atropos.ConnectManteion(ctx, "cartservice",
-		atropos.WithInstanceID(instanceID),
-		atropos.WithApplyTargets(applyTargets),
-	)
-	if err != nil {
-		log.Printf("manteion connection failed, running offline: %v", err)
-	}
-	if mc != nil {
-		defer mc.Close(ctx)
-	}
-	if cbPush != nil {
-		defer cbPush.Stop()
-	}
 
 	var store cartstore.CartStore
 	redisAddr := os.Getenv("REDIS_ADDR")
@@ -198,15 +144,23 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	mux.Handle("GET /metrics", atropos.MetricsHandler())
-	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
-	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
-	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mountCacheBox(mux, cb, "cartservice", instanceID)
-	mux.Handle("/atropos/health", atropos.HealthHandler())
+	h, shutdown, err := atropos.Serve(ctx, atropos.Config{
+		Service: "cartservice",
+		Version: "0.1.0",
+		Routes: []atropos.Route{
+			{Method: "POST", Path: "/cart/{user_id}/items", Description: "Add an item to the user's cart"},
+			{Method: "GET", Path: "/cart/{user_id}", Description: "Fetch the user's cart", DependsOn: []string{"POST /cart/{user_id}/items"}},
+			{Method: "DELETE", Path: "/cart/{user_id}", Description: "Empty the user's cart", DependsOn: []string{"POST /cart/{user_id}/items"}},
+		},
+		Handler: mux,
+	})
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
 
 	log.Printf("HTTP server listening on :%s", port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), atropos.IngressMiddleware(mux, "cartservice")); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), h); err != nil {
 		log.Fatalf("failed to serve HTTP: %v", err)
 	}
 }

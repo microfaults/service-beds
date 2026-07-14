@@ -5,7 +5,7 @@ go 1.25.6
 require (
 	cloud.google.com/go/alloydbconn v1.17.3
 	cloud.google.com/go/secretmanager v1.16.0
-	git.ucsc.edu/microfaults/atropos-go v0.0.9-alpha.91bb818
+	git.ucsc.edu/microfaults/atropos-go v0.1.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/pgvector/pgvector-go v0.3.0
 	google.golang.org/genai v1.46.0
@@ -71,5 +71,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/grpc v1.80.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

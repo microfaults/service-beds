@@ -29,61 +29,9 @@ func main() {
 
 	ctx := context.Background()
 
-	shutdown, err := atropos.Init(ctx,
-		atropos.WithServiceName("shoppingassistantservice"),
-		atropos.WithServiceVersion("0.1.0"),
-	)
-	if err != nil {
-		log.Fatalf("failed to init atropos: %v", err)
-	}
-	defer shutdown(ctx)
-
-	eval := atropos.NewStaticEvaluator()
-
-	instanceID := resolveInstanceID("shoppingassistantservice")
-	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
-	// instead of evicting (an LRU MemStore silently drops recordings under load).
-	cbCfg := atropos.CacheBoxConfig{}
-	cbPush := newCachePush("shoppingassistantservice", instanceID)
-	if cbPush != nil {
-		cbCfg.Push = cbPush.PushFunc()
-	}
-
-	cb := atropos.NewCacheBox(cbCfg)
-	// Push-side fidelity counts must land in the same registry the drain report
-	// snapshots; bind before traffic flows.
-	if cbPush != nil {
-		cbPush.BindFidelity(cb.Fidelity())
-	}
-	atropos.Configure(
-		atropos.WithEvaluator(eval),
-		atropos.WithCacheBoxCoordinator(cb),
-	)
-
-	atropos.RegisterRoutes(
-		atropos.Route{Method: "POST", Path: "/", Description: "LLM shopping assistant: interior-design product suggestions from a room image and prompt"},
-	)
-
-	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
-	if cbPush != nil {
-		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
-	}
-	mc, err := atropos.ConnectManteion(ctx, "shoppingassistantservice",
-		atropos.WithInstanceID(instanceID),
-		atropos.WithApplyTargets(applyTargets),
-	)
-	if err != nil {
-		log.Printf("manteion connection failed, running offline: %v", err)
-	}
-	if mc != nil {
-		defer mc.Close(ctx)
-	}
-	if cbPush != nil {
-		defer cbPush.Stop()
-	}
-
 	// 2. Initialize Product Store
 	var productStore db.ProductStore
+	var err error
 
 	dbBackend := os.Getenv("DB_BACKEND")
 	if dbBackend == "alloydb" {
@@ -138,12 +86,18 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	mux.Handle("GET /metrics", atropos.MetricsHandler())
-	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
-	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
-	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mountCacheBox(mux, cb, "shoppingassistantservice", instanceID)
-	mux.Handle("/atropos/health", atropos.HealthHandler())
+	handler, shutdown, err := atropos.Serve(ctx, atropos.Config{
+		Service: "shoppingassistantservice",
+		Version: "0.1.0",
+		Routes: []atropos.Route{
+			{Method: "POST", Path: "/", Description: "LLM shopping assistant: interior-design product suggestions from a room image and prompt"},
+		},
+		Handler: mux,
+	})
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -151,7 +105,7 @@ func main() {
 	}
 
 	log.Printf("Server listening on port %s", port)
-	if err := http.ListenAndServe(":"+port, atropos.IngressMiddleware(mux, "shoppingassistantservice")); err != nil {
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
 }

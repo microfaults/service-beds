@@ -22,59 +22,6 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	ctx := context.Background()
-	shutdown, err := atropos.Init(ctx,
-		atropos.WithServiceName("adservice"),
-		atropos.WithServiceVersion("0.1.0"),
-	)
-	if err != nil {
-		logger.Error("failed to init atropos", "error", err)
-		os.Exit(1)
-	}
-	defer shutdown(ctx)
-
-	eval := atropos.NewStaticEvaluator()
-
-	instanceID := resolveInstanceID("adservice")
-	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
-	// instead of evicting (an LRU MemStore silently drops recordings under load).
-	cbCfg := atropos.CacheBoxConfig{}
-	cbPush := newCachePush("adservice", instanceID)
-	if cbPush != nil {
-		cbCfg.Push = cbPush.PushFunc()
-	}
-
-	cb := atropos.NewCacheBox(cbCfg)
-	// Push-side fidelity counts must land in the same registry the drain report
-	// snapshots; bind before traffic flows.
-	if cbPush != nil {
-		cbPush.BindFidelity(cb.Fidelity())
-	}
-	atropos.Configure(
-		atropos.WithEvaluator(eval),
-		atropos.WithCacheBoxCoordinator(cb),
-	)
-
-	atropos.RegisterRoutes(
-		atropos.Route{Method: "GET", Path: "/ads", Description: "List ad candidates for the given context keys (query: context_keys)"},
-	)
-
-	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
-	if cbPush != nil {
-		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
-	}
-	mc, err := atropos.ConnectManteion(ctx, "adservice",
-		atropos.WithInstanceID(instanceID),
-		atropos.WithApplyTargets(applyTargets),
-	)
-	if err != nil {
-		logger.Warn("manteion connection failed, running offline", "error", err)
-	}
-	if mc != nil {
-		defer mc.Close(ctx)
-	}
-	if cbPush != nil {
-		defer cbPush.Stop()
-	}
 
 	service := NewService()
 
@@ -109,16 +56,23 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	mux.Handle("GET /metrics", atropos.MetricsHandler())
-	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
-	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
-	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mountCacheBox(mux, cb, "adservice", instanceID)
-	mux.Handle("/atropos/health", atropos.HealthHandler())
+	h, shutdown, err := atropos.Serve(ctx, atropos.Config{
+		Service: "adservice",
+		Version: "0.1.0",
+		Routes: []atropos.Route{
+			{Method: "GET", Path: "/ads", Description: "List ad candidates for the given context keys (query: context_keys)"},
+		},
+		Handler: mux,
+	})
+	if err != nil {
+		logger.Error("failed to init atropos", "error", err)
+		os.Exit(1)
+	}
+	defer shutdown(ctx)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: atropos.IngressMiddleware(mux, "adservice"),
+		Handler: h,
 	}
 
 	// Channel to listen for OS signals
