@@ -7,6 +7,10 @@ and the interference hierarchy (L0–L4) from `atropos-go/VISION.md`.
 ## Quick start
 
 ```bash
+# Fresh VM only — Docker + local registry:2 (:5000) + k3s (containerd) +
+# skaffold wired to the registry. Do NOT run on the live testbed:
+sudo ./bootstrap-vm.sh
+
 # One-time host tuning (run as root on the experiment VM):
 sudo ./prepare-vm.sh
 
@@ -16,6 +20,18 @@ sudo ./prepare-vm.sh
 # Between experiment phases (baseline → 1a → 1b → 2a → …):
 ../reset-online-boutique-state.sh
 ```
+
+## bootstrap-vm.sh
+
+Provisions a fresh Ubuntu/Debian VM with the exact topology vm1 runs:
+skaffold builds with Docker and pushes to a local `registry:2` on :5000;
+k3s runs its default containerd runtime and pulls from the registry via a
+`/etc/rancher/k3s/registries.yaml` mirror; `skaffold config` pins
+`default-repo=localhost:5000`. Deploy manteion before the services — with
+atropos-go ≥ v0.1.0 a service whose `MANTEION_URL` is set but unreachable
+fails startup (crash-loops until the control plane is up). Replaces the
+retired `vm-setup.sh` (branch `chore/vm-readiness`), which described a
+`k3s --docker` topology the testbed never used.
 
 ## prepare-vm.sh
 
