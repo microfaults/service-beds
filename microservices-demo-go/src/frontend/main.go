@@ -68,92 +68,6 @@ func main() {
 
 	baseUrl = os.Getenv("BASE_URL")
 
-	shutdown, err := atropos.Init(ctx,
-		atropos.WithServiceName("frontend"),
-		atropos.WithServiceVersion("0.1.0"),
-	)
-	if err != nil {
-		log.Fatalf("failed to init atropos: %v", err)
-	}
-	defer shutdown(ctx)
-
-	eval := atropos.NewStaticEvaluator()
-
-	// instanceID must be identical everywhere manteion correlates this SDK
-	// instance: the register call (WithInstanceID, below), the cache-push
-	// client (ingest envelopes + W3 drain reports), and the fidelity handler.
-	// Resolve it once. MANTEION_INSTANCE_ID > hostname (the pod name in k8s).
-	instanceID := os.Getenv("MANTEION_INSTANCE_ID")
-	if instanceID == "" {
-		instanceID, _ = os.Hostname()
-	}
-	if instanceID == "" {
-		instanceID = "frontend"
-	}
-
-	var cbPush *atropos.CachePushClient
-	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
-	// instead of evicting. An LRU MemStore would silently drop recordings under
-	// load and corrupt the fidelity verdict.
-	cbCfg := atropos.CacheBoxConfig{}
-	if manteionURL := os.Getenv("MANTEION_URL"); manteionURL != "" {
-		cbPush = atropos.NewCachePushClient(atropos.CachePushConfig{
-			BaseURL:  manteionURL,
-			Service:  "frontend",
-			Instance: instanceID,
-		})
-		cbCfg.Push = cbPush.PushFunc()
-	}
-
-	cb := atropos.NewCacheBox(cbCfg)
-	// Point the push client's per-phase counters at the CacheBox's own fidelity
-	// registry so the drain report's push-side counts are real (not zero, which
-	// degrades every baseline drain to the slow fidelity-pull fallback). Must
-	// happen before any traffic flows -- counts recorded before the bind are lost.
-	if cbPush != nil {
-		cbPush.BindFidelity(cb.Fidelity())
-	}
-	atropos.Configure(
-		atropos.WithEvaluator(eval),
-		atropos.WithCacheBoxCoordinator(cb),
-	)
-
-	atropos.RegisterRoutes(
-		atropos.Route{Method: "GET", Path: "/", Description: "Home page: product listing"},
-		atropos.Route{Method: "GET", Path: "/product/{id}", Description: "Product detail page"},
-		atropos.Route{Method: "POST", Path: "/cart", Description: "Add a product to the cart"},
-		atropos.Route{Method: "GET", Path: "/cart", Description: "View cart with shipping estimate", DependsOn: []string{"POST /cart"}},
-		atropos.Route{Method: "POST", Path: "/cart/empty", Description: "Empty the cart", DependsOn: []string{"POST /cart"}},
-		atropos.Route{Method: "POST", Path: "/cart/checkout", Description: "Place the order for the current cart", DependsOn: []string{"POST /cart"}},
-		atropos.Route{Method: "POST", Path: "/setCurrency", Description: "Set the session display currency"},
-		atropos.Route{Method: "GET", Path: "/logout", Description: "Clear the session and log out"},
-		atropos.Route{Method: "GET", Path: "/assistant", Description: "Shopping assistant page"},
-		atropos.Route{Method: "GET", Path: "/product-meta/{ids}", Description: "Product metadata for a comma-separated ID list"},
-		atropos.Route{Method: "POST", Path: "/bot", Description: "Chat request forwarded to the shopping assistant"},
-	)
-
-	// CacheDrain fires the W3 drain report the moment a recording phase ends,
-	// so the baseline drain barrier need not wait out the full timeout. Its
-	// Observe -> SendDrainReport needs a non-nil pusher, so only wire it when a
-	// push client exists (i.e. manteion is configured).
-	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
-	if cbPush != nil {
-		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
-	}
-	mc, err := atropos.ConnectManteion(ctx, "frontend",
-		atropos.WithInstanceID(instanceID),
-		atropos.WithApplyTargets(applyTargets),
-	)
-	if err != nil {
-		log.Warnf("manteion connection failed, running offline: %v", err)
-	}
-	if mc != nil {
-		defer mc.Close(ctx)
-	}
-	if cbPush != nil {
-		defer cbPush.Stop()
-	}
-
 	srvPort := port
 	if os.Getenv("PORT") != "" {
 		srvPort = os.Getenv("PORT")
@@ -210,21 +124,32 @@ func main() {
 	r.HandleFunc(baseUrl+"/product-meta/{ids}", svc.getProductByID).Methods(http.MethodGet)
 	r.HandleFunc(baseUrl+"/bot", svc.chatBotHandler).Methods(http.MethodPost)
 
-	r.Handle(baseUrl+"/metrics", atropos.MetricsHandler()).Methods(http.MethodGet)
-	r.PathPrefix(baseUrl + "/admin/fault").Handler(atropos.FaultAdminHandler())
-	r.Handle(baseUrl+"/admin/rules", atropos.RulesAdminHandler(eval)).Methods(http.MethodGet, http.MethodPost, http.MethodDelete)
-	// Prefix mount: gorilla/mux won't route POST /admin/cachebox/delay (freeze)
-	// to an exact-path handler, and the bare DELETE (thaw) must route too.
-	r.PathPrefix(baseUrl + "/admin/cachebox").Handler(atropos.CacheBoxAdminHandler(cb))
-	// Staged preload (begin/chunk/commit/abort) and the pull-based fidelity verdict.
-	r.PathPrefix(baseUrl + "/cachebox/preload").Handler(atropos.CacheBoxPreloadHandler(cb))
-	r.Handle(baseUrl+"/cachebox/fidelity", atropos.CacheBoxFidelityHandler(cb, "frontend", instanceID)).Methods(http.MethodGet)
-	r.Handle(baseUrl+"/atropos/health", atropos.HealthHandler()).Methods(http.MethodGet)
-
 	var handler http.Handler = r
 	handler = &logHandler{log: log, next: handler} // add logging
 	handler = ensureSessionID(handler)             // add session ID
-	handler = atropos.IngressMiddleware(handler, "frontend")
+
+	handler, shutdown, err := atropos.Serve(ctx, atropos.Config{
+		Service: "frontend",
+		Version: "0.1.0",
+		Routes: []atropos.Route{
+			{Method: "GET", Path: "/", Description: "Home page: product listing"},
+			{Method: "GET", Path: "/product/{id}", Description: "Product detail page"},
+			{Method: "POST", Path: "/cart", Description: "Add a product to the cart"},
+			{Method: "GET", Path: "/cart", Description: "View cart with shipping estimate", DependsOn: []string{"POST /cart"}},
+			{Method: "POST", Path: "/cart/empty", Description: "Empty the cart", DependsOn: []string{"POST /cart"}},
+			{Method: "POST", Path: "/cart/checkout", Description: "Place the order for the current cart", DependsOn: []string{"POST /cart"}},
+			{Method: "POST", Path: "/setCurrency", Description: "Set the session display currency"},
+			{Method: "GET", Path: "/logout", Description: "Clear the session and log out"},
+			{Method: "GET", Path: "/assistant", Description: "Shopping assistant page"},
+			{Method: "GET", Path: "/product-meta/{ids}", Description: "Product metadata for a comma-separated ID list"},
+			{Method: "POST", Path: "/bot", Description: "Chat request forwarded to the shopping assistant"},
+		},
+		Handler: handler,
+	})
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
 
 	log.Infof("starting server on %s:%s", addr, srvPort)
 	log.Fatal(http.ListenAndServe(addr+":"+srvPort, handler))

@@ -60,59 +60,6 @@ func main() {
 	port := listenPort
 	ctx := context.Background()
 
-	shutdown, err := atropos.Init(ctx,
-		atropos.WithServiceName("checkoutservice"),
-		atropos.WithServiceVersion("0.1.0"),
-	)
-	if err != nil {
-		log.Fatalf("failed to init atropos: %v", err)
-	}
-	defer shutdown(ctx)
-
-	eval := atropos.NewStaticEvaluator()
-
-	instanceID := resolveInstanceID("checkoutservice")
-	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
-	// instead of evicting (an LRU MemStore silently drops recordings under load).
-	cbCfg := atropos.CacheBoxConfig{}
-	cbPush := newCachePush("checkoutservice", instanceID)
-	if cbPush != nil {
-		cbCfg.Push = cbPush.PushFunc()
-	}
-
-	cb := atropos.NewCacheBox(cbCfg)
-	// Push-side fidelity counts must land in the same registry the drain report
-	// snapshots; bind before traffic flows.
-	if cbPush != nil {
-		cbPush.BindFidelity(cb.Fidelity())
-	}
-	atropos.Configure(
-		atropos.WithEvaluator(eval),
-		atropos.WithCacheBoxCoordinator(cb),
-	)
-
-	atropos.RegisterRoutes(
-		atropos.Route{Method: "POST", Path: "/placeorder", Description: "Place an order: prices the cart, charges payment, ships, empties the cart, and emails confirmation", DependsOn: []string{"cartservice POST /cart/{user_id}/items"}},
-	)
-
-	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
-	if cbPush != nil {
-		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
-	}
-	mc, err := atropos.ConnectManteion(ctx, "checkoutservice",
-		atropos.WithInstanceID(instanceID),
-		atropos.WithApplyTargets(applyTargets),
-	)
-	if err != nil {
-		log.Warnf("manteion connection failed, running offline: %v", err)
-	}
-	if mc != nil {
-		defer mc.Close(ctx)
-	}
-	if cbPush != nil {
-		defer cbPush.Stop()
-	}
-
 	if os.Getenv("PORT") != "" {
 		port = os.Getenv("PORT")
 	}
@@ -154,14 +101,18 @@ func main() {
 	mux.HandleFunc("/placeorder", svc.handlePlaceOrder)
 	mux.HandleFunc("/_healthz", svc.handleHealth)
 
-	mux.Handle("GET /metrics", atropos.MetricsHandler())
-	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
-	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
-	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mountCacheBox(mux, cb, "checkoutservice", instanceID)
-	mux.Handle("/atropos/health", atropos.HealthHandler())
-
-	handler := atropos.IngressMiddleware(mux, "checkoutservice")
+	handler, shutdown, err := atropos.Serve(ctx, atropos.Config{
+		Service: "checkoutservice",
+		Version: "0.1.0",
+		Routes: []atropos.Route{
+			{Method: "POST", Path: "/placeorder", Description: "Place an order: prices the cart, charges payment, ships, empties the cart, and emails confirmation", DependsOn: []string{"cartservice POST /cart/{user_id}/items"}},
+		},
+		Handler: mux,
+	})
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
 
 	log.Infof("starting to listen on http://:%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, handler))

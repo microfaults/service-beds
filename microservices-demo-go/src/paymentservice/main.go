@@ -70,59 +70,6 @@ func main() {
 	log := newLogger()
 	ctx := context.Background()
 
-	shutdown, err := atropos.Init(ctx,
-		atropos.WithServiceName("paymentservice"),
-		atropos.WithServiceVersion("0.1.0"),
-	)
-	if err != nil {
-		log.Fatalf("failed to init atropos: %v", err)
-	}
-	defer shutdown(ctx)
-
-	eval := atropos.NewStaticEvaluator()
-
-	instanceID := resolveInstanceID("paymentservice")
-	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
-	// instead of evicting (an LRU MemStore silently drops recordings under load).
-	cbCfg := atropos.CacheBoxConfig{}
-	cbPush := newCachePush("paymentservice", instanceID)
-	if cbPush != nil {
-		cbCfg.Push = cbPush.PushFunc()
-	}
-
-	cb := atropos.NewCacheBox(cbCfg)
-	// Push-side fidelity counts must land in the same registry the drain report
-	// snapshots; bind before traffic flows.
-	if cbPush != nil {
-		cbPush.BindFidelity(cb.Fidelity())
-	}
-	atropos.Configure(
-		atropos.WithEvaluator(eval),
-		atropos.WithCacheBoxCoordinator(cb),
-	)
-
-	atropos.RegisterRoutes(
-		atropos.Route{Method: "POST", Path: "/charge", Description: "Charge a credit card for the given amount"},
-	)
-
-	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
-	if cbPush != nil {
-		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
-	}
-	mc, err := atropos.ConnectManteion(ctx, "paymentservice",
-		atropos.WithInstanceID(instanceID),
-		atropos.WithApplyTargets(applyTargets),
-	)
-	if err != nil {
-		log.Warnf("manteion connection failed, running offline: %v", err)
-	}
-	if mc != nil {
-		defer mc.Close(ctx)
-	}
-	if cbPush != nil {
-		defer cbPush.Stop()
-	}
-
 	if profilerEnabled() {
 		log.Info("Profiling enabled.")
 		go initProfiling(log, "paymentservice", "1.0.0")
@@ -141,14 +88,18 @@ func main() {
 	mux.HandleFunc("GET /_healthz", svc.healthz)
 	mux.HandleFunc("POST /charge", svc.charge)
 
-	mux.Handle("GET /metrics", atropos.MetricsHandler())
-	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
-	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
-	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mountCacheBox(mux, cb, "paymentservice", instanceID)
-	mux.Handle("/atropos/health", atropos.HealthHandler())
-
-	handler := atropos.IngressMiddleware(mux, "paymentservice")
+	handler, shutdown, err := atropos.Serve(ctx, atropos.Config{
+		Service: "paymentservice",
+		Version: "0.1.0",
+		Routes: []atropos.Route{
+			{Method: "POST", Path: "/charge", Description: "Charge a credit card for the given amount"},
+		},
+		Handler: mux,
+	})
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
 
 	addr := ":" + port
 	log.Infof("starting HTTP server on %s", addr)

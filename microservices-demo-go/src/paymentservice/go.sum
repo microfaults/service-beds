@@ -16,8 +16,8 @@ cloud.google.com/go/profiler v0.4.3 h1:IY3QNKlr8VbXwGWHcZbJQsMA/83ZTH6uAHf8jYyj7
 cloud.google.com/go/profiler v0.4.3/go.mod h1:3xFodugWfPIQZWFcXdUmfa+yTiiyQ8fWrdT+d2Sg4J0=
 cloud.google.com/go/storage v1.56.0 h1:iixmq2Fse2tqxMbWhLWC9HfBj1qdxqAmiK8/eqtsLxI=
 cloud.google.com/go/storage v1.56.0/go.mod h1:Tpuj6t4NweCLzlNbw9Z9iwxEkrSem20AetIeH/shgVU=
-git.ucsc.edu/microfaults/atropos-go v0.0.9-alpha.91bb818 h1:R9W8sW/g624eblS16np7rszf2plD6LuWvu8/hWWc1mQ=
-git.ucsc.edu/microfaults/atropos-go v0.0.9-alpha.91bb818/go.mod h1:ax1BqKmIfDSP2tLzYq1ji/TEV+M5UQWicTPN7wG6Gzg=
+git.ucsc.edu/microfaults/atropos-go v0.1.0 h1:y9VJaNGPkbQT4wGAw2DUYnaBI9xpM1C7y72gafc0TJ8=
+git.ucsc.edu/microfaults/atropos-go v0.1.0/go.mod h1:ax1BqKmIfDSP2tLzYq1ji/TEV+M5UQWicTPN7wG6Gzg=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.31.0 h1:DHa2U07rk8syqvCge0QIGMCE1WxGj9njT44GH7zNJLQ=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.31.0/go.mod h1:P4WPRUkOhJC13W//jWpyfJNDAIpvRbAUIYLX/4jtlE0=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.53.0 h1:owcC2UnmsZycprQ5RfRgjydWhuoxg71LUfyiQdijZuM=

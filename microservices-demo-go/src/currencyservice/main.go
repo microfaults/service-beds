@@ -65,60 +65,6 @@ func main() {
 	log := newLogger()
 	ctx := context.Background()
 
-	shutdown, err := atropos.Init(ctx,
-		atropos.WithServiceName("currencyservice"),
-		atropos.WithServiceVersion("0.1.0"),
-	)
-	if err != nil {
-		log.Fatalf("failed to init atropos: %v", err)
-	}
-	defer shutdown(ctx)
-
-	eval := atropos.NewStaticEvaluator()
-
-	instanceID := resolveInstanceID("currencyservice")
-	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
-	// instead of evicting (an LRU MemStore silently drops recordings under load).
-	cbCfg := atropos.CacheBoxConfig{}
-	cbPush := newCachePush("currencyservice", instanceID)
-	if cbPush != nil {
-		cbCfg.Push = cbPush.PushFunc()
-	}
-
-	cb := atropos.NewCacheBox(cbCfg)
-	// Push-side fidelity counts must land in the same registry the drain report
-	// snapshots; bind before traffic flows.
-	if cbPush != nil {
-		cbPush.BindFidelity(cb.Fidelity())
-	}
-	atropos.Configure(
-		atropos.WithEvaluator(eval),
-		atropos.WithCacheBoxCoordinator(cb),
-	)
-
-	atropos.RegisterRoutes(
-		atropos.Route{Method: "GET", Path: "/currencies", Description: "List supported currency codes"},
-		atropos.Route{Method: "POST", Path: "/convert", Description: "Convert a money amount between currencies"},
-	)
-
-	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
-	if cbPush != nil {
-		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
-	}
-	mc, err := atropos.ConnectManteion(ctx, "currencyservice",
-		atropos.WithInstanceID(instanceID),
-		atropos.WithApplyTargets(applyTargets),
-	)
-	if err != nil {
-		log.Warnf("manteion connection failed, running offline: %v", err)
-	}
-	if mc != nil {
-		defer mc.Close(ctx)
-	}
-	if cbPush != nil {
-		defer cbPush.Stop()
-	}
-
 	port := defaultPort
 	if os.Getenv("PORT") != "" {
 		port = os.Getenv("PORT")
@@ -135,14 +81,19 @@ func main() {
 	mux.HandleFunc("GET /currencies", svc.getSupportedCurrencies)
 	mux.HandleFunc("POST /convert", svc.convert)
 
-	mux.Handle("GET /metrics", atropos.MetricsHandler())
-	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
-	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
-	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mountCacheBox(mux, cb, "currencyservice", instanceID)
-	mux.Handle("/atropos/health", atropos.HealthHandler())
-
-	handler := atropos.IngressMiddleware(mux, "currencyservice")
+	handler, shutdown, err := atropos.Serve(ctx, atropos.Config{
+		Service: "currencyservice",
+		Version: "0.1.0",
+		Routes: []atropos.Route{
+			{Method: "GET", Path: "/currencies", Description: "List supported currency codes"},
+			{Method: "POST", Path: "/convert", Description: "Convert a money amount between currencies"},
+		},
+		Handler: mux,
+	})
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
 
 	addr := ":" + port
 

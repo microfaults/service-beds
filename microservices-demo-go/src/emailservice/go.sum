@@ -1,5 +1,5 @@
-git.ucsc.edu/microfaults/atropos-go v0.0.9-alpha.91bb818 h1:R9W8sW/g624eblS16np7rszf2plD6LuWvu8/hWWc1mQ=
-git.ucsc.edu/microfaults/atropos-go v0.0.9-alpha.91bb818/go.mod h1:ax1BqKmIfDSP2tLzYq1ji/TEV+M5UQWicTPN7wG6Gzg=
+git.ucsc.edu/microfaults/atropos-go v0.1.0 h1:y9VJaNGPkbQT4wGAw2DUYnaBI9xpM1C7y72gafc0TJ8=
+git.ucsc.edu/microfaults/atropos-go v0.1.0/go.mod h1:ax1BqKmIfDSP2tLzYq1ji/TEV+M5UQWicTPN7wG6Gzg=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=

@@ -3,7 +3,7 @@ module checkoutservice
 go 1.25.6
 
 require (
-	git.ucsc.edu/microfaults/atropos-go v0.0.9-alpha.91bb818
+	git.ucsc.edu/microfaults/atropos-go v0.1.0
 	github.com/google/uuid v1.6.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/twmb/franz-go v1.20.7
@@ -43,5 +43,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/grpc v1.80.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -51,59 +51,6 @@ func init() {
 
 func main() {
 	ctx := context.Background()
-	shutdown, err := atropos.Init(ctx,
-		atropos.WithServiceName("shippingservice"),
-		atropos.WithServiceVersion("0.1.0"),
-	)
-	if err != nil {
-		log.Fatalf("failed to init atropos: %v", err)
-	}
-	defer shutdown(ctx)
-
-	eval := atropos.NewStaticEvaluator()
-
-	instanceID := resolveInstanceID("shippingservice")
-	// No explicit Store: the SDK's default bounded RecordBuffer counts overflow
-	// instead of evicting (an LRU MemStore silently drops recordings under load).
-	cbCfg := atropos.CacheBoxConfig{}
-	cbPush := newCachePush("shippingservice", instanceID)
-	if cbPush != nil {
-		cbCfg.Push = cbPush.PushFunc()
-	}
-
-	cb := atropos.NewCacheBox(cbCfg)
-	// Push-side fidelity counts must land in the same registry the drain report
-	// snapshots; bind before traffic flows.
-	if cbPush != nil {
-		cbPush.BindFidelity(cb.Fidelity())
-	}
-	atropos.Configure(
-		atropos.WithEvaluator(eval),
-		atropos.WithCacheBoxCoordinator(cb),
-	)
-
-	atropos.RegisterRoutes(
-		atropos.Route{Method: "POST", Path: "/shipping/quote", Description: "Get a shipping quote for an address and item list"},
-		atropos.Route{Method: "POST", Path: "/shipping/ship", Description: "Ship an order; returns a tracking ID"},
-	)
-
-	applyTargets := atropos.ApplyTargets{Evaluator: eval, CacheBox: cb}
-	if cbPush != nil {
-		applyTargets.CacheDrain = atropos.NewCacheDrainTracker(cb, cbPush, nil)
-	}
-	mc, err := atropos.ConnectManteion(ctx, "shippingservice",
-		atropos.WithInstanceID(instanceID),
-		atropos.WithApplyTargets(applyTargets),
-	)
-	if err != nil {
-		log.Warnf("manteion connection failed, running offline: %v", err)
-	}
-	if mc != nil {
-		defer mc.Close(ctx)
-	}
-	if cbPush != nil {
-		defer cbPush.Stop()
-	}
 
 	port := defaultPort
 	if value, ok := os.LookupEnv("PORT"); ok {
@@ -117,16 +64,23 @@ func main() {
 	mux.HandleFunc("POST /shipping/ship", handleShipOrder)
 	mux.HandleFunc("GET /_healthz", handleHealth)
 
-	mux.Handle("GET /metrics", atropos.MetricsHandler())
-	mux.Handle("/admin/fault", atropos.FaultAdminHandler())
-	mux.Handle("/admin/fault/", atropos.FaultAdminHandler()) // subtree: DELETE /admin/fault/{category}
-	mux.Handle("/admin/rules", atropos.RulesAdminHandler(eval))
-	mountCacheBox(mux, cb, "shippingservice", instanceID)
-	mux.Handle("/atropos/health", atropos.HealthHandler())
+	h, shutdown, err := atropos.Serve(ctx, atropos.Config{
+		Service: "shippingservice",
+		Version: "0.1.0",
+		Routes: []atropos.Route{
+			{Method: "POST", Path: "/shipping/quote", Description: "Get a shipping quote for an address and item list"},
+			{Method: "POST", Path: "/shipping/ship", Description: "Ship an order; returns a tracking ID"},
+		},
+		Handler: mux,
+	})
+	if err != nil {
+		log.Fatalf("failed to init atropos: %v", err)
+	}
+	defer shutdown(ctx)
 
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: atropos.IngressMiddleware(mux, "shippingservice"),
+		Handler: h,
 	}
 
 	// Graceful shutdown on SIGINT/SIGTERM.

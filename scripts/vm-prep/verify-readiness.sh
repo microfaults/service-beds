@@ -100,7 +100,7 @@ fi
 
 # COLLECTOR_SERVICE_ADDR on all service deployments (trace completeness)
 MISSING_COLLECTOR=""
-SERVICES="adservice cartservice checkoutservice currencyservice emailservice frontend paymentservice productcatalogservice recommendationservice shippingservice"
+SERVICES="adservice cartservice checkoutservice currencyservice emailservice frontend paymentservice productcatalogservice recommendationservice shippingservice shoppingassistantservice"
 for SVC in $SERVICES; do
   HAS_IT=$(kubectl -n "$NS" get deployment "$SVC" -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="COLLECTOR_SERVICE_ADDR")].value}' 2>/dev/null || true)
   if [[ -z "$HAS_IT" ]]; then
@@ -135,9 +135,19 @@ else
   fail "${HPA_COUNT} HPA(s) active — replica count will drift between phases"
 fi
 
+# Load generator scaled to zero (background traffic confounds every phase)
+LG_REPLICAS=$(kubectl -n "$NS" get deployment loadgenerator -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "absent")
+if [[ "$LG_REPLICAS" == "absent" ]]; then
+  pass "loadgenerator not deployed"
+elif [[ "$LG_REPLICAS" == "0" ]]; then
+  pass "loadgenerator scaled to 0"
+else
+  fail "loadgenerator at ${LG_REPLICAS} replica(s) — scale to 0 before experiments"
+fi
+
 # AlwaysSample tracing (ratio sampling invalidates latency distributions)
 # Check the otel-collector config for a probabilistic sampler
-COLLECTOR_CFG=$(kubectl -n "$NS" get configmap otel-collector-config -o jsonpath='{.data}' 2>/dev/null || true)
+COLLECTOR_CFG=$(kubectl -n "$NS" get configmap otel-collector-conf -o jsonpath='{.data}' 2>/dev/null || true)
 if [[ -n "$COLLECTOR_CFG" ]]; then
   if echo "$COLLECTOR_CFG" | grep -qi "probabilistic"; then
     warn "OTel collector config contains probabilistic sampler — latency distributions may be biased"
