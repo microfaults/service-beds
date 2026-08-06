@@ -46,6 +46,12 @@ spec:
         ports:
         - containerPort: 50051
         env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MANTEION_ADVERTISE_ADDR
+          value: "$(POD_IP):50051"
         - name: PORT
           value: "50051"
         - name: COLLECTOR_SERVICE_ADDR

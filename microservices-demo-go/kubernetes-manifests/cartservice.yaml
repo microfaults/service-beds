@@ -47,6 +47,12 @@ spec:
         ports:
         - containerPort: 7070
         env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MANTEION_ADVERTISE_ADDR
+          value: "$(POD_IP):7070"
         - name: REDIS_ADDR
           value: "redis-cart:6379"
         - name: COLLECTOR_SERVICE_ADDR

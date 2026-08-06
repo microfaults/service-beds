@@ -47,6 +47,12 @@ spec:
         ports:
         - containerPort: 9555
         env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MANTEION_ADVERTISE_ADDR
+          value: "$(POD_IP):9555"
         - name: PORT
           value: "9555"
         - name: COLLECTOR_SERVICE_ADDR

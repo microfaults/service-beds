@@ -48,6 +48,12 @@ spec:
         - name: http
           containerPort: 7000
         env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MANTEION_ADVERTISE_ADDR
+          value: "$(POD_IP):7000"
         - name: PORT
           value: "7000"
         - name: ENABLE_TRACING

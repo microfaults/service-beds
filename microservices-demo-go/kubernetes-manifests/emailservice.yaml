@@ -47,6 +47,12 @@ spec:
         ports:
         - containerPort: 8080
         env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MANTEION_ADVERTISE_ADDR
+          value: "$(POD_IP):8080"
         - name: PORT
           value: "8080"
         - name: COLLECTOR_SERVICE_ADDR
