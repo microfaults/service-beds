@@ -24,7 +24,9 @@ data:
           - targets: ['currencyservice:7000']
       - job_name: 'emailservice'
         static_configs:
-          - targets: ['emailservice:8080']
+          # Service port is 5000 (targetPort 8080); scraping :8080 on the
+          # Service DNS name dials a port the Service does not expose.
+          - targets: ['emailservice:5000']
       - job_name: 'frontend'
         static_configs:
           - targets: ['frontend:80']
